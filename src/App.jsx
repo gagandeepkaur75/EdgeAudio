@@ -170,10 +170,10 @@ function Project() {
 
 function Team() {
   const members = [
-    ["01", "Member 1", "Frontend & Browser", "React • Web Audio • WebRTC"],
-    ["02", "Member 2", "ML & Speech Processing", "Datasets • MOS • Model"],
-    ["03", "Member 3", "Browser ML & Optimization", "ONNX • WebAssembly • Performance"],
-    ["04", "Member 4", "Backend & Deployment", "Server • Storage • Evaluation"],
+    ["01", "Gagandeep Kaur", "Frontend & Browser", "React • Web Audio • WebRTC"],
+    ["02", "Prabhleen Kaur", "ML & Speech Processing", "Datasets • MOS • Model"],
+    ["03", "Dishita ", "Browser ML & Optimization", "ONNX • WebAssembly • Performance"],
+    ["04", "Kunal Gupta", "Backend & Deployment", "Server • Storage • Evaluation"],
   ];
 
   return (
@@ -502,3 +502,48 @@ function App() {
 }
 
 export default App;
+{/* =====================================================
+    PLANNING PRESENTATION V1 - POWERPOINT
+===================================================== */}
+
+<section className="ppt-section">
+
+  <div className="ppt-header">
+    <p className="section-label">PLANNING PRESENTATION</p>
+
+    <h2>Planning Presentation V1</h2>
+
+    <p>
+      The complete Planning Presentation V1 is available below.
+      The website presentation contains the required project planning,
+      architecture, requirements, risks and development schedule.
+    </p>
+  </div>
+
+  <div className="ppt-actions">
+
+    <a
+      href="/planning-v1.pptx"
+      download="EdgeAudio-QC-Planning-V1.pptx"
+      className="ppt-button primary"
+    >
+      Download PPTX
+    </a>
+
+    <a
+      href="/planning-v1.pptx"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="ppt-button secondary"
+    >
+      Open Presentation
+    </a>
+
+  </div>
+
+  <div className="ppt-notice">
+    <strong>Planning Presentation V1</strong>
+    <span>EdgeAudio-QC • UCS503 Software Project</span>
+  </div>
+
+</section>

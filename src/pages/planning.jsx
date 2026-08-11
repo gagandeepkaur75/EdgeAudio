@@ -1,1274 +1,558 @@
+import "./planning.css";
+
+const slides = [
+  "Title",
+  "Contents",
+  "Introduction",
+  "Project Scope",
+  "Proposed Functions",
+  "Target Users",
+  "System Features",
+  "Interfaces",
+  "Performance Goals",
+  "Evaluation Baselines",
+  "Security Measures",
+  "Quality Attributes",
+  "Feasibility",
+  "Risks & Challenges",
+  "17-Week Roadmap",
+  "Milestones",
+  "Conclusion",
+  "References",
+];
+
+const ganttTasks = [
+  { label: "Weeks 1–2", title: "Browser feasibility experiment", start: 1, end: 2 },
+  { label: "Weeks 3–5", title: "Dataset preparation & preprocessing", start: 3, end: 5 },
+  { label: "Weeks 6–8", title: "No-reference model development & evaluation", start: 6, end: 8 },
+  { label: "Weeks 9–11", title: "Model compression & browser inference", start: 9, end: 11 },
+  { label: "Weeks 12–14", title: "JS/WASM SDK & WebRTC integration", start: 12, end: 14 },
+  { label: "Weeks 15–16", title: "Full evaluation & comparison", start: 15, end: 16 },
+  { label: "Week 17", title: "Final integration, deployment & demo", start: 17, end: 17 },
+];
+
+function Slide({ number, eyebrow, title, children, className = "" }) {
+  return (
+    <section id={`slide-${number}`} className={`planning-slide ${className}`}>
+      <div className="slide-inner">
+        {eyebrow && <p className="slide-eyebrow">{eyebrow}</p>}
+        {title && <h2 className="slide-title">{title}</h2>}
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function Planning() {
+
   return (
     <div className="planning-page">
 
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
+      <main className="planning-content">
+        {/* 01 TITLE */}
+        <Slide number={1} className="title-slide">
+          <div className="title-content">
+            <p className="project-kicker">UCS503 SOFTWARE PROJECT</p>
+            <h1>EdgeAudio<span>-QC</span></h1>
+            <p className="title-subtitle">Privacy-Preserving Speech Quality Estimation</p>
+          </div>
+        </Slide>
 
-      <header className="presentation-header">
+        {/* 02 CONTENTS */}
+        <Slide number={2} eyebrow="PLANNING PRESENTATION V1" title="Table of Contents">
+          <div className="toc-grid">
+            {slides.slice(2).map((name, index) => (
+              <button key={name} onClick={() => document.getElementById(`slide-${index + 3}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                {name}
+              </button>
+            ))}
+          </div>
+        </Slide>
 
-        <p className="project-label">
-          UCS503 SOFTWARE PROJECT
-        </p>
+        {/* 03 INTRODUCTION */}
+        <Slide number={3} eyebrow="01 — INTRODUCTION" title="Introduction">
+          <div className="three-card-grid">
+            <article>
+              <span className="card-label">Overview</span>
+              <h3>Privacy-preserving browser analysis</h3>
+              <p>
+                EdgeAudio-QC is a privacy-preserving, browser-based system that
+                estimates perceived speech quality during a live web
+                communication session.
+              </p>
+            </article>
+            <article>
+              <span className="card-label">Importance</span>
+              <h3>Why this approach?</h3>
+              <p>
+                Current systems rely heavily on network statistics and
+                server-side analysis. EdgeAudio-QC explores a client-side
+                approach that keeps raw audio on the user's device.
+              </p>
+            </article>
+            <article>
+              <span className="card-label">Presentation Objectives</span>
+              <h3>What this plan establishes</h3>
+              <p>
+                Define project scope and functions; identify target users;
+                describe system features and interfaces; establish performance
+                and security goals; and present feasibility and initial
+                planning.
+              </p>
+            </article>
+          </div>
+        </Slide>
 
-        <h1>EdgeAudio-QC</h1>
-
-        <h2>Planning Presentation V1</h2>
-
-        <div className="presentation-info">
-          <span>Version: V1</span>
-          <span>Date: August 2026</span>
-          <span>Authors: EdgeAudio-QC Team</span>
-        </div>
-
-      </header>
-
-
-
-
-
-      <main>
-
-
-        {/* =====================================================
-            01 — INTRODUCTION
-        ===================================================== */}
-
-        <section
-          id="introduction"
-          className="presentation-section"
-        >
-
-          <p className="section-label">
-            01 — INTRODUCTION
-          </p>
-
-          <h2>Introduction</h2>
-
-
-          <div className="content-box">
-
-            <h3>Overview</h3>
-
-            <p>
-              EdgeAudio-QC is a privacy-preserving,
-              browser-based system designed to estimate
-              perceived speech quality during a live web
-              communication session.
-            </p>
-
-            <p>
-              The system is designed to process speech
-              locally in the user's browser and provide
-              a live quality estimate without requiring
-              raw audio to be sent to a remote server
-              for analysis.
-            </p>
-
+        {/* 04 SCOPE */}
+        <Slide number={4} eyebrow="02 — PROJECT SCOPE" title="Project Scope">
+          <div className="scope-grid">
+            <article className="feature-card">
+              <span className="card-label">Project Aims</span>
+              <p>
+                Estimate perceived speech quality during live web communication
+                while processing speech locally inside the browser.
+              </p>
+            </article>
+            <article className="feature-card">
+              <span className="card-label">Deliverables</span>
+              <p>
+                Browser application; speech-quality model; browser inference
+                pipeline; frontend; backend/deployment infrastructure;
+                evaluation and documentation.
+              </p>
+            </article>
+            <article className="feature-card wide">
+              <span className="card-label">Broad Functionality</span>
+              <p>
+                Capture speech, preprocess audio, extract features, run local
+                inference, smooth the estimate and display a live quality
+                result.
+              </p>
+            </article>
           </div>
 
-
-          <div className="two-column">
-
-            <div className="content-card">
-
-              <h3>Why Is This Important?</h3>
-
-              <p>
-                Speech quality can change during an online
-                communication session because of network,
-                audio-processing and environmental conditions.
-              </p>
-
-              <p>
-                A privacy-preserving approach can provide
-                useful quality information while reducing
-                the need to transmit raw speech audio.
-              </p>
-
-            </div>
-
-
-            <div className="content-card">
-
-              <h3>Presentation Objectives</h3>
-
-              <ul>
-                <li>Define the project scope.</li>
-                <li>Explain the proposed functions.</li>
-                <li>Identify intended users.</li>
-                <li>Describe system features and interfaces.</li>
-                <li>Define performance and security goals.</li>
-                <li>Present the initial development plan.</li>
-              </ul>
-
-            </div>
-
-          </div>
-
-        </section>
-
-
-
-        {/* =====================================================
-            02 — PROJECT SCOPE
-        ===================================================== */}
-
-        <section
-          id="scope"
-          className="presentation-section"
-        >
-
-          <p className="section-label">
-            02 — PROJECT SCOPE
-          </p>
-
-          <h2>Project Scope</h2>
-
-
-          <div className="content-box">
-
-            <h3>Project Aims</h3>
-
-            <p>
-              The main aim of EdgeAudio-QC is to develop
-              a browser-based system that estimates
-              perceived speech quality during live
-              communication while keeping raw audio
-              processing on the user's device.
-            </p>
-
-          </div>
-
-
-          <div className="three-column">
-
-            <div className="content-card">
-              <span className="card-number">01</span>
-              <h3>Speech Capture</h3>
-              <p>
-                Capture speech from the user's microphone
-                through browser audio interfaces.
-              </p>
-            </div>
-
-
-            <div className="content-card">
-              <span className="card-number">02</span>
-              <h3>Local Processing</h3>
-              <p>
-                Process audio locally in the browser
-                instead of sending raw audio for analysis.
-              </p>
-            </div>
-
-
-            <div className="content-card">
-              <span className="card-number">03</span>
-              <h3>Quality Estimation</h3>
-              <p>
-                Produce a live estimate representing
-                perceived speech quality.
-              </p>
-            </div>
-
-          </div>
-
-
-          <div className="content-box">
-
-            <h3>Expected Deliverables</h3>
-
+          <div className="constraints">
+            <h3>Initial scope constraints</h3>
             <ul>
-              <li>Browser-based EdgeAudio-QC application.</li>
-              <li>Speech-quality estimation model.</li>
-              <li>Browser inference pipeline.</li>
-              <li>Frontend user interface.</li>
-              <li>Backend and deployment infrastructure.</li>
-              <li>Evaluation results and documentation.</li>
+              <li>16 kHz mono speech for the first version.</li>
+              <li>One named desktop browser for the first version.</li>
+              <li>Browser execution is a core feasibility requirement.</li>
+              <li>Raw audio remains on the user's device.</li>
             </ul>
+          </div>
+        </Slide>
 
+        {/* 05 FUNCTIONS */}
+        <Slide number={5} eyebrow="03 — PROPOSED FUNCTIONS" title="Proposed Functions">
+          <div className="function-grid">
+            {[
+              ["Microphone Capture", "Capture speech through browser microphone permissions."],
+              ["Audio Preprocessing", "Prepare incoming audio for feature extraction."],
+              ["Feature Extraction", "Extract information required by the model."],
+              ["Browser Inference", "Run the model and preprocessing inside the browser."],
+              ["Temporal Smoothing", "Reduce fluctuations and stabilize the estimate."],
+              ["Live Quality Estimate", "Display the current perceived quality estimate."],
+            ].map(([name, text]) => (
+              <article className="function-card" key={name}>
+                <div className="function-number">✓</div>
+                <div>
+                  <h3>{name}</h3>
+                  <p>{text}</p>
+                </div>
+              </article>
+            ))}
           </div>
 
-
-          <div className="content-box">
-
-            <h3>Broad Functionality</h3>
-
-            <p>
-              The planned system captures speech, extracts
-              relevant information, performs local inference,
-              applies quality estimation and presents a
-              stable quality result to the user.
-            </p>
-
+          <div className="pipeline">
+            <span>Microphone</span><b>→</b><span>Browser Audio</span><b>→</b>
+            <span>Features</span><b>→</b><span>ML Model</span><b>→</b>
+            <span>Live Estimate</span>
           </div>
+        </Slide>
 
-        </section>
-
-
-
-        {/* =====================================================
-            03 — PROPOSED FUNCTIONS
-        ===================================================== */}
-
-        <section
-          id="functions"
-          className="presentation-section"
-        >
-
-          <p className="section-label">
-            03 — PROPOSED FUNCTIONS
-          </p>
-
-          <h2>Proposed Functions</h2>
-
-
-          <div className="content-box">
-
-            <h3>Major Functions</h3>
-
-            <div className="feature-list">
-
-              <div>
-                <strong>01 — Microphone Capture</strong>
-                <p>
-                  Capture speech using browser microphone
-                  permissions.
-                </p>
-              </div>
-
-              <div>
-                <strong>02 — Audio Preprocessing</strong>
-                <p>
-                  Prepare incoming audio for feature extraction
-                  and inference.
-                </p>
-              </div>
-
-              <div>
-                <strong>03 — Feature Extraction</strong>
-                <p>
-                  Extract information required by the
-                  speech-quality model.
-                </p>
-              </div>
-
-              <div>
-                <strong>04 — Browser Inference</strong>
-                <p>
-                  Execute the quality-estimation model
-                  inside the browser.
-                </p>
-              </div>
-
-              <div>
-                <strong>05 — Quality Estimation</strong>
-                <p>
-                  Generate a perceived speech-quality estimate.
-                </p>
-              </div>
-
-              <div>
-                <strong>06 — Live Display</strong>
-                <p>
-                  Present the quality result and processing
-                  status to the user.
-                </p>
-              </div>
-
-            </div>
-
-          </div>
-
-
-          <div className="content-box">
-
-            <h3>User Needs</h3>
-
-            <ul>
-              <li>Simple access through a web browser.</li>
-              <li>Clear and understandable quality feedback.</li>
-              <li>Low processing delay.</li>
-              <li>Privacy of raw speech audio.</li>
-              <li>Stable quality estimation during a session.</li>
-            </ul>
-
-          </div>
-
-
-          <div className="flow-diagram">
-
-            <div className="flow-step">
-              <span>01</span>
-              <strong>Microphone</strong>
-              <small>Speech capture</small>
-            </div>
-
-            <div className="flow-arrow">→</div>
-
-            <div className="flow-step">
-              <span>02</span>
-              <strong>Browser</strong>
-              <small>Audio processing</small>
-            </div>
-
-            <div className="flow-arrow">→</div>
-
-            <div className="flow-step">
-              <span>03</span>
-              <strong>ML Model</strong>
-              <small>Inference</small>
-            </div>
-
-            <div className="flow-arrow">→</div>
-
-            <div className="flow-step">
-              <span>04</span>
-              <strong>Quality Score</strong>
-              <small>Live result</small>
-            </div>
-
-          </div>
-
-        </section>
-
-
-
-        {/* =====================================================
-            04 — TARGET USERS
-        ===================================================== */}
-
-        <section
-          id="users"
-          className="presentation-section"
-        >
-
-          <p className="section-label">
-            04 — TARGET USERS
-          </p>
-
-          <h2>Target Users</h2>
-
-
-          <div className="three-column">
-
-            <div className="content-card">
-
-              <span className="card-number">01</span>
-
+        {/* 06 USERS */}
+        <Slide number={6} eyebrow="04 — TARGET USERS" title="Target Users">
+          <div className="user-grid">
+            <article>
+              <span className="user-icon">01</span>
               <h3>Web Communication Users</h3>
-
               <p>
-                Users participating in browser-based
-                voice communication who need speech-quality
-                feedback.
+                People participating in browser-based voice communication who
+                need speech-quality feedback.
               </p>
-
-            </div>
-
-
-            <div className="content-card">
-
-              <span className="card-number">02</span>
-
+            </article>
+            <article>
+              <span className="user-icon">02</span>
               <h3>Developers & Researchers</h3>
-
               <p>
-                People developing or evaluating browser-based
-                communication and speech-processing systems.
+                Users evaluating browser-based communication, speech processing
+                and client-side inference.
               </p>
-
-            </div>
-
-
-            <div className="content-card">
-
-              <span className="card-number">03</span>
-
+            </article>
+            <article>
+              <span className="user-icon">03</span>
               <h3>Communication Platforms</h3>
-
               <p>
-                Systems that may benefit from client-side
-                speech-quality monitoring without transmitting
-                raw speech.
+                Potential integration target for client-side speech-quality
+                monitoring without transmitting raw speech.
               </p>
-
-            </div>
-
+            </article>
           </div>
-
-
-          <div className="content-box">
-
-            <h3>User Characteristics</h3>
-
-            <ul>
-              <li>Users may have different levels of technical knowledge.</li>
-              <li>The interface should be simple and understandable.</li>
-              <li>Users expect fast feedback during communication.</li>
-              <li>Privacy and data protection are important considerations.</li>
-            </ul>
-
-          </div>
-
-
-          <div className="content-box">
-
-            <h3>User Needs Impact</h3>
-
+          <div className="impact-box">
+            <strong>User Needs Impact</strong>
             <p>
-              These user requirements influence the design
-              of the system by requiring a simple interface,
-              responsive quality feedback, low processing
-              overhead and privacy-preserving local processing.
+              The design prioritizes a simple interface, fast feedback, low
+              processing overhead, understandable results and privacy-preserving
+              local processing.
             </p>
-
           </div>
+        </Slide>
 
-        </section>
-
-
-
-        {/* =====================================================
-            05 — SYSTEM FEATURES
-        ===================================================== */}
-
-        <section
-          id="features"
-          className="presentation-section"
-        >
-
-          <p className="section-label">
-            05 — SYSTEM FEATURES
-          </p>
-
-          <h2>System Features</h2>
-
-
-          <div className="feature-grid">
-
-            <div className="feature-card">
-              <h3> Microphone Capture</h3>
-              <p>
-                Browser-based speech capture with user permission.
-              </p>
-            </div>
-
-            <div className="feature-card">
-              <h3> Privacy-Preserving Processing</h3>
-              <p>
-                Raw audio is designed to remain on the user's device.
-              </p>
-            </div>
-
-            <div className="feature-card">
-              <h3>Local Feature Extraction</h3>
-              <p>
-                Audio information required by the model is
-                extracted locally.
-              </p>
-            </div>
-
-            <div className="feature-card">
-              <h3>Browser ML Inference</h3>
-              <p>
-                The planned model inference runs inside
-                the browser.
-              </p>
-            </div>
-
-            <div className="feature-card">
-              <h3>Live Quality Estimate</h3>
-              <p>
-                Display a continuously updated speech-quality estimate.
-              </p>
-            </div>
-
-            <div className="feature-card">
-              <h3>Rolling-Window Analysis</h3>
-              <p>
-                Use rolling audio windows to provide more stable
-                quality estimation.
-              </p>
-            </div>
-
+        {/* 07 FEATURES */}
+        <Slide number={7} eyebrow="05 — SYSTEM FEATURES" title="System Features">
+          <div className="feature-list">
+            {[
+              ["Microphone Capture", "Browser microphone access."],
+              ["Privacy-Preserving Processing", "Raw audio stays on-device."],
+              ["Rolling-Window Inference", "Analyze short rolling contexts."],
+              ["Speech-Quality Model", "No-reference quality estimation."],
+              ["Temporal Smoothing", "Stabilize live estimates."],
+              ["Browser ML Runtime", "Run inference locally."],
+              ["Reusable JS/WASM SDK", "Package browser inference."],
+              ["Hosted WebRTC PWA", "Demonstration/test application."],
+            ].map(([name, text]) => (
+              <div className="feature-row" key={name}>
+                <strong>{name}</strong>
+                <span>{text}</span>
+              </div>
+            ))}
           </div>
-
-
-          <div className="content-box">
-
-            <h3>Feature Interaction</h3>
-
+          <div className="interaction">
+            <strong>Feature interaction</strong>
             <p>
-              The system combines microphone capture,
-              browser audio processing, feature extraction,
-              machine-learning inference and result
-              visualization into one processing pipeline.
+              Microphone → Web Audio/WebRTC → Preprocessing → Features →
+              Model → Smoothing → Live Estimate
             </p>
-
           </div>
+        </Slide>
 
-
-          <div className="architecture-diagram">
-
-            <div>Microphone</div>
-            <span>↓</span>
-            <div>Web Audio / WebRTC</div>
-            <span>↓</span>
-            <div>Feature Extraction</div>
-            <span>↓</span>
-            <div>Browser ML Inference</div>
-            <span>↓</span>
-            <div>Quality Estimate</div>
-
+        {/* 08 INTERFACES */}
+        <Slide number={8} eyebrow="06 — INTERFACES" title="System Interfaces">
+          <div className="interface-grid">
+            <article>
+              <span className="card-label">User Interface (UI)</span>
+              <p>
+                Homepage and navigation; Planning Presentation V1; live test
+                interface; microphone permission flow; processing status;
+                quality result display.
+              </p>
+            </article>
+            <article>
+              <span className="card-label">Hardware / Software</span>
+              <p>
+                User microphone; desktop browser; Web Audio API; WebRTC;
+                browser ML runtime; JavaScript/WebAssembly execution.
+              </p>
+            </article>
+            <article className="wide">
+              <span className="card-label">Communication Interfaces</span>
+              <p>
+                Frontend communicates with the backend for protected
+                administration, file metadata, publishing and version
+                management. Raw speech analysis remains local.
+              </p>
+            </article>
           </div>
+        </Slide>
 
-        </section>
-
-
-
-        {/* =====================================================
-            06 — INTERFACES
-        ===================================================== */}
-
-        <section
-          id="interfaces"
-          className="presentation-section"
-        >
-
-          <p className="section-label">
-            06 — INTERFACES
-          </p>
-
-          <h2>Interfaces</h2>
-
-
-          <div className="three-column">
-
-            <div className="content-card">
-
-              <h3>User Interface</h3>
-
-              <p>
-                The frontend provides navigation,
-                project information, live testing controls,
-                processing status and quality results.
-              </p>
-
-              <ul>
-                <li>Homepage</li>
-                <li>Planning Presentation</li>
-                <li>Live Test interface</li>
-                <li>Quality result display</li>
-              </ul>
-
-            </div>
-
-
-            <div className="content-card">
-
-              <h3>Hardware / Software</h3>
-
-              <p>
-                The planned system interacts with:
-              </p>
-
-              <ul>
-                <li>User microphone</li>
-                <li>Desktop browser</li>
-                <li>Web Audio APIs</li>
-                <li>WebRTC interfaces</li>
-                <li>Browser ML runtime</li>
-              </ul>
-
-            </div>
-
-
-            <div className="content-card">
-
-              <h3>Communication Interfaces</h3>
-
-              <p>
-                The project website will communicate with
-                its backend for administrative operations,
-                publishing and file management.
-              </p>
-
-              <p>
-                Raw speech processing is intended to remain
-                local to the user's device.
-              </p>
-
-            </div>
-
+        {/* 09 PERFORMANCE */}
+        <Slide number={9} eyebrow="07 — PERFORMANCE GOALS" title="Initial Technical Targets">
+          <div className="metric-grid">
+            {[
+              ["Browser", "Google Chrome stable, version 151 or later."],
+              ["Test Hardware", "AMD Ryzen 7 7840HS, 16 GB RAM, NVIDIA RTX 3050 6 GB laptop GPU."],
+              ["Maximum Model Size", "< 2 MB after INT8 quantization."],
+              ["Maximum Bundle Size", "< 5 MB browser bundle."],
+              ["Processing Target", "< 300 ms per update; 3-second rolling context updated every 1 second."],
+              ["Memory Target", "< 150 MB peak memory during a 10-minute call."],
+            ].map(([name, value]) => (
+              <article key={name}>
+                <span>{name}</span>
+                <strong>{value}</strong>
+              </article>
+            ))}
           </div>
+        </Slide>
 
-        </section>
-
-
-
-        {/* =====================================================
-            07 — PERFORMANCE GOALS
-        ===================================================== */}
-
-        <section
-          id="performance"
-          className="presentation-section"
-        >
-
-          <p className="section-label">
-            07 — PERFORMANCE GOALS
-          </p>
-
-          <h2>Performance Goals</h2>
-
-
-          <div className="target-grid">
-
-            <div className="target-card">
-              <h3>Browser</h3>
-              <strong>Chrome Stable</strong>
-              <p>
-                Target browser environment for initial testing.
-              </p>
-            </div>
-
-
-            <div className="target-card">
-              <h3>Model Size</h3>
-              <strong>&lt; 2 MB</strong>
-              <p>
-                Initial target after model quantization.
-              </p>
-            </div>
-
-
-            <div className="target-card">
-              <h3>Bundle Size</h3>
-              <strong>&lt; 5 MB</strong>
-              <p>
-                Initial target for the browser bundle.
-              </p>
-            </div>
-
-
-            <div className="target-card">
-              <h3>Processing</h3>
-              <strong>&lt; 300 ms</strong>
-              <p>
-                Target processing time per update cycle.
-              </p>
-            </div>
-
-
-            <div className="target-card">
-              <h3>Memory</h3>
-              <strong>&lt; 150 MB</strong>
-              <p>
-                Target peak memory during a 10-minute call.
-              </p>
-            </div>
-
-
-            <div className="target-card">
-              <h3>Live Updates</h3>
-              <strong>1 second</strong>
-              <p>
-                Target update interval using a rolling context.
-              </p>
-            </div>
-
+        {/* 10 BASELINES */}
+        <Slide number={10} eyebrow="07 — PERFORMANCE GOALS" title="Evaluation Baselines & Metrics">
+          <div className="baseline-grid">
+            {[
+              ["DNSMOS", "No-reference speech-quality estimation baseline."],
+              ["NISQA", "Existing speech-quality assessment baseline."],
+              ["WebRTC Statistics", "Network baseline using packet loss, jitter and bitrate."],
+              ["Human MOS", "Compare model estimates against human perceptual ratings."],
+              ["Pearson Correlation", "Measure correlation with human-labelled ratings."],
+              ["Spearman Correlation", "Evaluate agreement in quality ranking."],
+              ["Unseen Conditions", "Test degradation conditions not represented during training."],
+            ].map(([name, text]) => (
+              <article key={name}>
+                <strong>{name}</strong>
+                <p>{text}</p>
+              </article>
+            ))}
           </div>
+        </Slide>
 
-
-          <div className="content-box">
-
-            <h3>Why Performance Matters</h3>
-
-            <p>
-              Speech-quality estimation is intended to operate
-              during a live communication session. Excessive
-              processing time, memory usage or model size could
-              affect responsiveness and usability.
-            </p>
-
-          </div>
-
-
-          <div className="content-box">
-
-            <h3>Achievement Strategy</h3>
-
-            <ul>
-              <li>Model quantization and optimization.</li>
-              <li>Efficient browser-side feature extraction.</li>
-              <li>Rolling-window processing.</li>
-              <li>Performance profiling.</li>
-              <li>Memory and CPU monitoring.</li>
-              <li>Browser inference optimization.</li>
-            </ul>
-
-          </div>
-
-        </section>
-
-
-
-        {/* =====================================================
-            08 — SECURITY MEASURES
-        ===================================================== */}
-
-        <section
-          id="security"
-          className="presentation-section"
-        >
-
-          <p className="section-label">
-            08 — SECURITY MEASURES
-          </p>
-
-          <h2>Security Measures</h2>
-
-
+        {/* 11 SECURITY */}
+        <Slide number={11} eyebrow="08 — SECURITY MEASURES" title="Security & Privacy">
           <div className="security-grid">
-
-            <div className="security-card">
-
-              <span></span>
-
-              <h3>Privacy</h3>
-
-              <p>
-                Raw audio is intended to remain on the
-                user's device during speech-quality analysis.
-              </p>
-
-            </div>
-
-
-            <div className="security-card">
-
-              <span></span>
-
-              <h3>Data Protection</h3>
-
-              <p>
-                Administrative files and project data will
-                be handled through controlled backend and
-                object-storage services.
-              </p>
-
-            </div>
-
-
-            <div className="security-card">
-
-              <span></span>
-
-              <h3>Authentication</h3>
-
-              <p>
-                The instructor/admin interface will require
-                authentication before protected operations
-                can be performed.
-              </p>
-
-            </div>
-
-
-            <div className="security-card">
-
-              <span></span>
-
-              <h3>Access Control</h3>
-
-              <p>
-                Administrative operations such as uploading,
-                publishing and version management will be
-                restricted to authorized users.
-              </p>
-
-            </div>
-
+            {[
+              ["Security Overview", "Privacy-preserving local speech processing and controlled access to project administration."],
+              ["Data Protection", "Raw speech remains on the user's device. Project uploads use controlled backend and object-storage handling."],
+              ["Access Control", "Admin/instructor operations such as upload, publish and version management require authentication and authorization."],
+              ["Secure Communication", "Use secure transport for deployed frontend/backend communication. Storage access should be mediated by the backend rather than exposing privileged storage credentials."],
+            ].map(([name, text]) => (
+              <article key={name}>
+                <span className="card-label">{name}</span>
+                <p>{text}</p>
+              </article>
+            ))}
           </div>
+        </Slide>
 
+        {/* 12 QUALITY */}
+        <Slide number={12} eyebrow="09 — QUALITY ATTRIBUTES" title="Reliability, Usability & Maintainability">
+          <div className="quality-grid">
+            {[
+              ["Reliability", "Use rolling-window processing, temporal smoothing, controlled evaluation and performance monitoring to make live estimates stable and repeatable."],
+              ["Usability", "Provide a simple browser interface, clear status information, understandable quality feedback and a straightforward microphone-permission flow."],
+              ["Maintainability", "Keep frontend, backend, inference and deployment modular; document interfaces; use version control and preserve historical presentation versions."],
+            ].map(([name, text]) => (
+              <article key={name}>
+                <div className="quality-mark">✓</div>
+                <h3>{name}</h3>
+                <p>{text}</p>
+              </article>
+            ))}
+          </div>
+        </Slide>
 
-          <div className="content-box">
-
-            <h3>Secure Communication and Storage</h3>
-
+        {/* 13 FEASIBILITY */}
+        <Slide number={13} eyebrow="10 — INITIAL PLANNING" title="First Feasibility Experiment • Weeks 1–2">
+          <div className="feasibility-hero">
+            <span className="card-label">Core Feasibility Requirement</span>
+            <h3>
+              The model and preprocessing pipeline must run completely inside
+              the browser.
+            </h3>
             <p>
-              The deployed system will use secure communication
-              between the frontend and backend. Uploaded
-              presentation materials will be stored in approved
-              object storage rather than being treated as
-              frontend-hosting files.
+              A Python-only result or exported model without browser execution
+              is not sufficient.
             </p>
-
           </div>
 
-        </section>
-
-
-
-        {/* =====================================================
-            09 — QUALITY ATTRIBUTES
-        ===================================================== */}
-
-        <section
-          id="quality"
-          className="presentation-section"
-        >
-
-          <p className="section-label">
-            09 — QUALITY ATTRIBUTES
-          </p>
-
-          <h2>Quality Attributes</h2>
-
-
-          <div className="three-column">
-
-            <div className="quality-card">
-
-              <div className="quality-icon">
-                01
+          <div className="measurement-grid">
+            {[
+              "Model size",
+              "Feature-extraction time",
+              "Inference time",
+              "Peak memory",
+              "CPU usage",
+              "Pearson correlation",
+              "Spearman correlation",
+            ].map((item) => (
+              <div key={item}>
+                <strong>{item}</strong>
+                <span>Measure during feasibility baseline.</span>
               </div>
+            ))}
+          </div>
+        </Slide>
 
-              <h3>Reliability</h3>
-
-              <p>
-                The system should provide stable quality
-                estimates and continue operating reliably
-                during a communication session.
-              </p>
-
-            </div>
-
-
-            <div className="quality-card">
-
-              <div className="quality-icon">
-                02
-              </div>
-
-              <h3>Usability</h3>
-
-              <p>
-                Users should be able to start a test,
-                understand the processing status and
-                interpret the quality result easily.
-              </p>
-
-            </div>
-
-
-            <div className="quality-card">
-
-              <div className="quality-icon">
-                03
-              </div>
-
-              <h3>Maintainability</h3>
-
-              <p>
-                The system should use modular frontend,
-                backend and inference components with
-                clear documentation and version control.
-              </p>
-
-            </div>
-
+        {/* 14 RISKS */}
+        <Slide number={14} eyebrow="10 — INITIAL PLANNING" title="Technical Risks & Expected Challenges">
+          <div className="risk-grid">
+            {[
+              ["Browser Inference", "Inference may be slower than expected."],
+              ["Model Size", "Compression or distillation may be required."],
+              ["Hardware Variation", "Performance may vary across hardware."],
+              ["Unseen Degradations", "Unseen conditions may reduce estimation quality."],
+              ["Live Stability", "Estimates may fluctuate without temporal smoothing."],
+            ].map(([name, text]) => (
+              <article key={name}>
+                <span className="risk-number">!</span>
+                <div>
+                  <h3>{name}</h3>
+                  <p>{text}</p>
+                </div>
+              </article>
+            ))}
           </div>
 
-        </section>
-
-
-
-        {/* =====================================================
-            10 — INITIAL PLANNING
-        ===================================================== */}
-
-        <section
-          id="planning"
-          className="presentation-section"
-        >
-
-          <p className="section-label">
-            10 — INITIAL PLANNING
-          </p>
-
-          <h2>Initial Planning</h2>
-
-
-          {/* FEASIBILITY */}
-
-          <div className="content-box">
-
-            <h3>Feasibility Report — Initial Findings</h3>
-
+          <div className="risk-management">
+            <strong>Risk Management</strong>
             <p>
-              The initial feasibility work focuses on determining
-              whether speech-quality preprocessing and model
-              inference can operate inside a desktop browser
-              while meeting practical model-size, processing-time
-              and memory constraints.
+              Use early feasibility testing, profiling, model compression,
+              controlled evaluation and temporal smoothing.
             </p>
+          </div>
+        </Slide>
 
-            <div className="check-list">
-
-              <div>✓ Browser-based execution</div>
-              <div>✓ Local audio processing</div>
-              <div>✓ Model-size evaluation</div>
-              <div>✓ Feature-extraction measurement</div>
-              <div>✓ Inference-time measurement</div>
-              <div>✓ Memory and CPU evaluation</div>
-              <div>✓ Correlation with quality labels</div>
-
+        {/* 15 GANTT */}
+        <Slide number={15} eyebrow="10 — INITIAL PLANNING" title="17-Week Development Roadmap">
+          <div className="gantt-wrap">
+            <div className="gantt-header">
+              <div className="gantt-task-heading">Task</div>
+              <div className="gantt-weeks-heading">
+                {Array.from({ length: 17 }, (_, i) => (
+                  <span key={i}>{i + 1}</span>
+                ))}
+              </div>
             </div>
 
+            {ganttTasks.map((task) => (
+              <div className="gantt-line" key={task.title}>
+                <div className="gantt-task-name">
+                  <strong>{task.label}</strong>
+                  <span>{task.title}</span>
+                </div>
+
+                <div className="gantt-track">
+                  {Array.from({ length: 17 }, (_, i) => {
+                    const week = i + 1;
+                    const active = week >= task.start && week <= task.end;
+                    return (
+                      <span
+                        key={week}
+                        className={active ? "gantt-active" : ""}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
-          {/* =====================================================
-    GANTT CHART
-===================================================== */}
 
-<div className="gantt-section">
-
-  <div className="gantt-title-row">
-    <div>
-      <p className="gantt-label">INITIAL DEVELOPMENT SCHEDULE</p>
-      <h3>17-Week Development Gantt Plan</h3>
-      <p className="gantt-subtitle">
-        Development tasks, dependencies and milestones planned across the
-        17-week project schedule.
-      </p>
-    </div>
-  </div>
-
-  <div className="gantt-chart">
-
-    {/* HEADER */}
-
-    <div className="gantt-header">
-
-      <div className="gantt-task-header">
-        Task
-      </div>
-
-      <div className="gantt-week-header">
-
-        {Array.from({ length: 17 }, (_, i) => (
-          <div className="week-number" key={i}>
-            {i + 1}
+          <div className="dependency-line">
+            <strong>Dependencies</strong>
+            <span>
+              Feasibility → Dataset/Model → Compression → Browser Inference →
+              SDK/WebRTC → Evaluation → Final Integration
+            </span>
           </div>
-        ))}
-
-      </div>
-
-      <div className="gantt-milestone-header">
-        Milestone
-      </div>
-
-    </div>
-
-
-    {/* BROWSER FEASIBILITY */}
-
-    <div className="gantt-row">
-
-      <div className="gantt-task">
-
-        <strong>Browser Feasibility</strong>
-
-        <span>
-          Browser execution and baseline measurements
-        </span>
-
-      </div>
-
-      <div className="gantt-weeks">
-
-        {Array.from({ length: 17 }, (_, i) => (
-          <div
-            key={i}
-            className={`gantt-cell ${
-              i >= 0 && i <= 1 ? "gantt-active" : ""
-            }`}
-          ></div>
-        ))}
-
-      </div>
-
-      <div className="gantt-milestone">
-        Feasibility baseline
-      </div>
-
-    </div>
-
-
-    {/* DATASET */}
-
-    <div className="gantt-row">
-
-      <div className="gantt-task">
-
-        <strong>Dataset Preparation</strong>
-
-        <span>
-          Dataset collection, cleaning and preprocessing
-        </span>
-
-      </div>
-
-      <div className="gantt-weeks">
-
-        {Array.from({ length: 17 }, (_, i) => (
-          <div
-            key={i}
-            className={`gantt-cell ${
-              i >= 2 && i <= 4 ? "gantt-active" : ""
-            }`}
-          ></div>
-        ))}
-
-      </div>
-
-      <div className="gantt-milestone">
-        Prepared dataset
-      </div>
-
-    </div>
-
-
-    {/* MODEL DEVELOPMENT */}
-
-    <div className="gantt-row">
-
-      <div className="gantt-task">
-
-        <strong>Model Development</strong>
-
-        <span>
-          No-reference model development and evaluation
-        </span>
-
-      </div>
-
-      <div className="gantt-weeks">
-
-        {Array.from({ length: 17 }, (_, i) => (
-          <div
-            key={i}
-            className={`gantt-cell ${
-              i >= 5 && i <= 7 ? "gantt-active" : ""
-            }`}
-          ></div>
-        ))}
-
-      </div>
-
-      <div className="gantt-milestone">
-        Baseline model
-      </div>
-
-    </div>
-
-
-    {/* MODEL OPTIMIZATION */}
-
-    <div className="gantt-row">
-
-      <div className="gantt-task">
-
-        <strong>Model Optimization</strong>
-
-        <span>
-          Model compression and browser optimization
-        </span>
-
-      </div>
-
-      <div className="gantt-weeks">
-
-        {Array.from({ length: 17 }, (_, i) => (
-          <div
-            key={i}
-            className={`gantt-cell ${
-              i >= 8 && i <= 10 ? "gantt-active" : ""
-            }`}
-          ></div>
-        ))}
-
-      </div>
-
-      <div className="gantt-milestone">
-        Optimized model
-      </div>
-
-    </div>
-
-
-    {/* WEBRTC */}
-
-    <div className="gantt-row">
-
-      <div className="gantt-task">
-
-        <strong>WebRTC &amp; Browser Integration</strong>
-
-        <span>
-          JavaScript/WASM SDK and WebRTC integration
-        </span>
-
-      </div>
-
-      <div className="gantt-weeks">
-
-        {Array.from({ length: 17 }, (_, i) => (
-          <div
-            key={i}
-            className={`gantt-cell ${
-              i >= 11 && i <= 13 ? "gantt-active" : ""
-            }`}
-          ></div>
-        ))}
-
-      </div>
-
-      <div className="gantt-milestone">
-        Integrated system
-      </div>
-
-    </div>
-
-
-    {/* EVALUATION */}
-
-    <div className="gantt-row">
-
-      <div className="gantt-task">
-
-        <strong>Evaluation &amp; Comparison</strong>
-
-        <span>
-          Full evaluation, testing and comparison
-        </span>
-
-      </div>
-
-      <div className="gantt-weeks">
-
-        {Array.from({ length: 17 }, (_, i) => (
-          <div
-            key={i}
-            className={`gantt-cell ${
-              i >= 14 && i <= 15 ? "gantt-active" : ""
-            }`}
-          ></div>
-        ))}
-
-      </div>
-
-      <div className="gantt-milestone">
-        Final evaluation
-      </div>
-
-    </div>
-
-
-    {/* FINAL DEMO */}
-
-    <div className="gantt-row">
-
-      <div className="gantt-task">
-
-        <strong>Final Integration &amp; Demo</strong>
-
-        <span>
-          Final integration, deployment and demonstration
-        </span>
-
-      </div>
-
-      <div className="gantt-weeks">
-
-        {Array.from({ length: 17 }, (_, i) => (
-          <div
-            key={i}
-            className={`gantt-cell ${
-              i === 16 ? "gantt-active" : ""
-            }`}
-          ></div>
-        ))}
-
-      </div>
-
-      <div className="gantt-milestone">
-        Final demo
-      </div>
-
-    </div>
-
-  </div>
-
-
-  {/* DEPENDENCIES */}
-
-  <div className="gantt-dependencies">
-
-    <strong>Dependencies</strong>
-
-    <span>
-      Feasibility
-    </span>
-
-    <b>→</b>
-
-    <span>
-      Dataset / Model
-    </span>
-
-    <b>→</b>
-
-    <span>
-      Optimization
-    </span>
-
-    <b>→</b>
-
-    <span>
-      Browser Inference
-    </span>
-
-    <b>→</b>
-
-    <span>
-      SDK / WebRTC
-    </span>
-
-    <b>→</b>
-
-    <span>
-      Evaluation
-    </span>
-
-    <b>→</b>
-
-    <span>
-      Final Integration
-    </span>
-
-  </div>
-
-</div>
-
-        </section>
-
+        </Slide>
+
+        {/* 16 MILESTONES */}
+        <Slide number={16} eyebrow="10 — INITIAL PLANNING" title="Milestones & Phase Outputs">
+          <div className="milestone-grid">
+            {[
+              ["Weeks 1–2", "Feasibility baseline", "Browser execution + performance measurements"],
+              ["Weeks 3–5", "Dataset ready", "Splits, preprocessing and controlled degradations"],
+              ["Weeks 6–8", "Baseline model", "Model evaluated against baselines and MOS labels"],
+              ["Weeks 9–11", "Optimized inference", "Compression + browser inference pipeline"],
+              ["Weeks 12–14", "Integrated system", "JS/WASM SDK + WebRTC test application"],
+              ["Weeks 15–16", "Evaluation complete", "Stability, delay, unseen conditions and browser performance"],
+              ["Week 17", "Final demo", "Integration, documentation, deployment and presentation"],
+            ].map(([weeks, title, text]) => (
+              <article key={weeks}>
+                <span>{weeks}</span>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </article>
+            ))}
+          </div>
+        </Slide>
+
+        {/* 17 CONCLUSION */}
+        <Slide number={17} eyebrow="11 — CONCLUSION" title="Conclusion">
+          <div className="conclusion-grid">
+            <article>
+              <span className="card-label">Summary</span>
+              <p>
+                EdgeAudio-QC proposes privacy-preserving speech-quality
+                estimation inside the browser. The plan covers browser
+                feasibility, model development, optimization, streaming
+                inference, integration and evaluation.
+              </p>
+            </article>
+            <article>
+              <span className="card-label">Next Steps</span>
+              <p>
+                Complete the Weeks 1–2 browser feasibility experiment; prepare
+                the dataset and baseline model; establish measured performance;
+                then proceed to optimization and browser integration.
+              </p>
+            </article>
+            <article className="wide">
+              <span className="card-label">Feedback & Discussion</span>
+              <p>
+                The team welcomes feedback on scope, technical approach,
+                evaluation methodology, security/privacy assumptions and the
+                development roadmap.
+              </p>
+            </article>
+          </div>
+        </Slide>
+
+        {/* 18 REFERENCES */}
+        <Slide number={18} eyebrow="12 — REFERENCES" title="References">
+          <div className="references">
+            <p>• UCS503 Planning Presentation template provided for the project planning presentation.</p>
+            <p>• DNSMOS — Deep Noise Suppression Mean Opinion Score, used as a no-reference speech-quality baseline.</p>
+            <p>• NISQA — Non-Intrusive Speech Quality Assessment, used as an evaluation baseline.</p>
+            <p>• LibriSpeech — speech dataset referenced for speech-processing experimentation.</p>
+            <p>• Web Audio API and WebRTC browser interfaces.</p>
+            <p>• ONNX / WebAssembly browser inference technologies planned for model execution.</p>
+            <p>• React and Vite for frontend development.</p>
+            
+          </div>
+        </Slide>
       </main>
     </div>
   );
 }
 
 export default Planning;
+<section className="ppt-section">
+
+  <div className="ppt-header">
+    <p className="section-label">PLANNING PRESENTATION</p>
+
+    <h2>Planning Presentation V1</h2>
+
+    <p>
+      The complete Planning Presentation V1 is available below.
+      The website presentation contains the required project planning,
+      architecture, requirements, risks and development schedule.
+    </p>
+  </div>
+
+  <div className="ppt-actions">
+
+    <a
+      href="/planning-v1.pptx"
+      download="EdgeAudio-QC-Planning-V1.pptx"
+      className="ppt-button primary"
+    >
+      Download PPTX
+    </a>
+
+    <a
+      href="/planning-v1.pptx"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="ppt-button secondary"
+    >
+      Open Presentation
+    </a>
+
+  </div>
+
+  <div className="ppt-notice">
+    <strong>Planning Presentation V1</strong>
+    <span>EdgeAudio-QC • UCS503 Software Project</span>
+  </div>
+
+</section>

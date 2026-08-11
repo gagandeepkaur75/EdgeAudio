@@ -22,7 +22,6 @@ function Home() {
           </p>
         </div>
 
-
         <nav className="side-menu">
 
           <Link to="/" className="side-link active">
@@ -67,7 +66,6 @@ function Home() {
 
         </nav>
 
-
         <div className="side-footer">
           UCS503
           <br />
@@ -87,16 +85,13 @@ function Home() {
             UCS503 SOFTWARE PROJECT
           </div>
 
-
           <h1>
             EdgeAudio<span>-QC</span>
           </h1>
 
-
           <h2>
             Privacy-Preserving Speech Quality Estimation
           </h2>
-
 
           <p className="hero-description">
             A browser-based system that estimates perceived
@@ -104,6 +99,8 @@ function Home() {
             session while keeping raw audio on the user's device.
           </p>
 
+
+          {/* ================= HOME BUTTONS ================= */}
 
           <div className="home-actions">
 
@@ -114,12 +111,18 @@ function Home() {
               Explore Project
             </Link>
 
-
             <Link
               to="/planning-v1"
               className="secondary-btn"
             >
               Planning Presentation V1
+            </Link>
+
+            <Link
+              to="/admin"
+              className="secondary-btn admin-btn"
+            >
+              Admin Login
             </Link>
 
           </div>
