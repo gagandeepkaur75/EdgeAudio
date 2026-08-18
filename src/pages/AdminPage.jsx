@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { api, auth } from "../utils/api";
+import PageNav from "../components/PageNav";
 
 export default function AdminPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(auth.isLoggedIn());
@@ -211,19 +212,7 @@ export default function AdminPage() {
   if (!isLoggedIn) {
     return (
       <div className="site-page">
-        <nav className="inner-nav">
-          <Link to="/" className="inner-logo">
-            EdgeAudio<span>-QC</span>
-          </Link>
-          <div className="inner-nav-links">
-            <Link to="/">Home</Link>
-            <Link to="/project">Project</Link>
-            <Link to="/team">Team</Link>
-            <Link to="/timeline">Timeline</Link>
-            <Link to="/architecture">Architecture</Link>
-            <Link to="/admin" className="active">Admin</Link>
-          </div>
-        </nav>
+        <PageNav />
         <main className="page-container">
           <div className="page-title">
             <span>ADMINISTRATION</span>
@@ -265,19 +254,7 @@ export default function AdminPage() {
 
   return (
     <div className="site-page">
-      <nav className="inner-nav">
-        <Link to="/" className="inner-logo">
-          EdgeAudio<span>-QC</span>
-        </Link>
-        <div className="inner-nav-links">
-          <Link to="/">Home</Link>
-          <Link to="/project">Project</Link>
-          <Link to="/team">Team</Link>
-          <Link to="/timeline">Timeline</Link>
-          <Link to="/architecture">Architecture</Link>
-          <Link to="/admin" className="active">Admin</Link>
-        </div>
-      </nav>
+      <PageNav />
       <main className="page-container">
         <div className="page-title">
           <span>ADMIN DASHBOARD</span>
