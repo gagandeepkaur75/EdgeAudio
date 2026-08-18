@@ -103,7 +103,14 @@ function Home() {
           {/* ================= HOME BUTTONS ================= */}
 
           <div className="home-actions">
+                     <Link
+    to="/live-communication"
+    className="live-home-btn"
+  >
+    Start Live Communication
+  </Link>
 
+  <div className="home-secondary-actions"></div>
             <Link
               to="/project"
               className="primary-btn"

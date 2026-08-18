@@ -1,0 +1,795 @@
+/* =========================================================
+   EDGEAUDIO-QC LIVE COMMUNICATION
+========================================================= */
+
+.live-page {
+  min-height: 100vh;
+  background: #ffffff;
+  color: #08162b;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.live-header {
+  min-height: 76px;
+  padding: 0 42px;
+
+  background: #07162d;
+
+  display: flex;
+  align-items: center;
+
+  gap: 28px;
+
+  box-sizing: border-box;
+}
+
+
+.live-brand {
+  color: #ffffff;
+
+  font-size: 34px;
+  font-weight: 800;
+
+  white-space: nowrap;
+}
+
+
+.live-brand span {
+  color: #4db3e6;
+}
+
+
+.live-header-status {
+  color: #55b9e8;
+
+  font-size: 16px;
+  font-weight: 700;
+}
+
+
+.live-meeting-id {
+  margin-left: auto;
+
+  background: #183b60;
+  color: #ffffff;
+
+  padding: 11px 20px;
+
+  border-radius: 24px;
+
+  font-size: 15px;
+  font-weight: 700;
+
+  letter-spacing: 0.5px;
+}
+
+
+/* =========================================================
+   MAIN
+========================================================= */
+
+.live-main {
+  width: min(1200px, calc(100% - 60px));
+
+  margin: 0 auto;
+
+  padding: 55px 0 60px;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   LABEL
+========================================================= */
+
+.live-label {
+  display: inline-block;
+
+  padding: 11px 25px;
+
+  background: #dcecf6;
+
+  color: #286987;
+
+  border-radius: 28px;
+
+  font-size: 14px;
+  font-weight: 800;
+
+  letter-spacing: 3px;
+}
+
+
+/* =========================================================
+   TITLE
+========================================================= */
+
+.live-main h1 {
+  margin: 24px 0 12px;
+
+  color: #08162b;
+
+  font-size: clamp(42px, 5vw, 64px);
+
+  line-height: 1.05;
+
+  font-weight: 800;
+}
+
+
+.live-description {
+  max-width: 800px;
+
+  margin: 0 0 32px;
+
+  color: #42647d;
+
+  font-size: 18px;
+
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   ERROR
+========================================================= */
+
+.live-error {
+  margin-bottom: 24px;
+
+  padding: 13px 18px;
+
+  border: 1px solid #e2a5a5;
+
+  border-radius: 9px;
+
+  background: #fff4f4;
+
+  color: #a13232;
+
+  font-size: 15px;
+}
+
+
+/* =========================================================
+   CREATE / JOIN
+========================================================= */
+
+.meeting-options {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 24px;
+
+  margin-top: 10px;
+}
+
+
+.meeting-card {
+  min-height: 255px;
+
+  padding: 30px;
+
+  background: #07162d;
+
+  border: 1px solid #173b60;
+
+  border-radius: 18px;
+
+  box-sizing: border-box;
+}
+
+
+.meeting-number {
+  margin-bottom: 15px;
+
+  color: #4db3e6;
+
+  font-size: 18px;
+
+  font-weight: 800;
+
+  letter-spacing: 2px;
+}
+
+
+.meeting-card h2 {
+  margin: 0 0 12px;
+
+  color: #ffffff;
+
+  font-size: 30px;
+
+  line-height: 1.2;
+}
+
+
+.meeting-card p {
+  max-width: 520px;
+
+  margin: 0 0 24px;
+
+  color: #c1ddec;
+
+  font-size: 16px;
+
+  line-height: 1.55;
+}
+
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+.create-button,
+.join-button,
+.control-button,
+.leave-button,
+.copy-button,
+.back-button {
+  font-family: inherit;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+
+.create-button {
+  padding: 12px 23px;
+
+  border: 1px solid #4db3e6;
+
+  border-radius: 9px;
+
+  background: #4db3e6;
+
+  color: #07162d;
+
+  font-size: 16px;
+
+  font-weight: 800;
+}
+
+
+.create-button:hover {
+  background: #69c4ed;
+}
+
+
+.join-button {
+  padding: 12px 23px;
+
+  border: 1px solid #4db3e6;
+
+  border-radius: 9px;
+
+  background: transparent;
+
+  color: #ffffff;
+
+  font-size: 16px;
+
+  font-weight: 800;
+}
+
+
+.join-button:hover {
+  background: #4db3e6;
+
+  color: #07162d;
+}
+
+
+/* =========================================================
+   INPUT
+========================================================= */
+
+.meeting-input {
+  width: 100%;
+
+  height: 48px;
+
+  margin-bottom: 13px;
+
+  padding: 0 16px;
+
+  box-sizing: border-box;
+
+  border: 1px solid #a9cfe4;
+
+  border-radius: 9px;
+
+  outline: none;
+
+  background: #ffffff;
+
+  color: #07162d;
+
+  font-family: inherit;
+
+  font-size: 16px;
+}
+
+
+.meeting-input::placeholder {
+  color: #7c8b96;
+}
+
+
+.meeting-input:focus {
+  border-color: #4db3e6;
+
+  box-shadow:
+    0 0 0 3px rgba(77, 179, 230, 0.15);
+}
+
+
+/* =========================================================
+   MEETING ROOM
+========================================================= */
+
+.meeting-room {
+  margin-top: 10px;
+
+  padding: 30px;
+
+  background: #f5fafc;
+
+  border: 1px solid #c7e0ec;
+
+  border-radius: 18px;
+
+  box-sizing: border-box;
+}
+
+
+.room-top {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: flex-start;
+
+  gap: 30px;
+
+  margin-bottom: 25px;
+}
+
+
+.room-label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #3d91ba;
+
+  font-size: 13px;
+
+  font-weight: 800;
+
+  letter-spacing: 2px;
+}
+
+
+.room-top h2 {
+  margin: 0 0 8px;
+
+  color: #07162d;
+
+  font-size: 30px;
+}
+
+
+.room-top p {
+  margin: 0;
+
+  color: #42647d;
+
+  font-size: 16px;
+}
+
+
+/* =========================================================
+   MEETING ID BOX
+========================================================= */
+
+.room-id-box {
+  min-width: 210px;
+
+  padding: 18px;
+
+  background: #07162d;
+
+  border-radius: 12px;
+
+  box-sizing: border-box;
+}
+
+
+.room-id-box span {
+  display: block;
+
+  margin-bottom: 6px;
+
+  color: #a8cce0;
+
+  font-size: 13px;
+}
+
+
+.room-id-box strong {
+  display: block;
+
+  margin-bottom: 12px;
+
+  color: #ffffff;
+
+  font-size: 19px;
+
+  letter-spacing: 1px;
+}
+
+
+.copy-button {
+  padding: 8px 15px;
+
+  border: 1px solid #4db3e6;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #ffffff;
+
+  font-size: 13px;
+
+  font-weight: 700;
+}
+
+
+.copy-button:hover {
+  background: #4db3e6;
+
+  color: #07162d;
+}
+
+
+/* =========================================================
+   PARTICIPANTS
+========================================================= */
+
+.participants {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 18px;
+}
+
+
+.participant-card {
+  min-height: 110px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 18px;
+
+  padding: 20px;
+
+  background: #ffffff;
+
+  border: 1px solid #c8e1ec;
+
+  border-radius: 14px;
+
+  box-sizing: border-box;
+}
+
+
+.participant-avatar {
+  width: 58px;
+  height: 58px;
+
+  flex-shrink: 0;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  font-size: 22px;
+
+  font-weight: 800;
+}
+
+
+.participant-avatar.local {
+  background: #4db3e6;
+
+  color: #07162d;
+}
+
+
+.participant-avatar.remote {
+  background: #285478;
+
+  color: #ffffff;
+}
+
+
+.participant-information h3 {
+  margin: 0 0 5px;
+
+  color: #07162d;
+
+  font-size: 18px;
+}
+
+
+.participant-information p {
+  margin: 0;
+
+  color: #55748a;
+
+  font-size: 14px;
+}
+
+
+/* =========================================================
+   CONTROLS
+========================================================= */
+
+.meeting-controls {
+  display: flex;
+
+  justify-content: center;
+
+  gap: 14px;
+
+  margin-top: 25px;
+}
+
+
+.control-button {
+  padding: 11px 21px;
+
+  border: 1px solid #4db3e6;
+
+  border-radius: 8px;
+
+  background: #07162d;
+
+  color: #ffffff;
+
+  font-size: 15px;
+
+  font-weight: 700;
+}
+
+
+.control-button:hover {
+  background: #163b5d;
+}
+
+
+.leave-button {
+  padding: 11px 21px;
+
+  border: 1px solid #c45c5c;
+
+  border-radius: 8px;
+
+  background: transparent;
+
+  color: #a33c3c;
+
+  font-size: 15px;
+
+  font-weight: 700;
+}
+
+
+.leave-button:hover {
+  background: #a33c3c;
+
+  color: #ffffff;
+}
+
+
+/* =========================================================
+   PRIVACY
+========================================================= */
+
+.privacy-box {
+  margin-top: 30px;
+
+  padding: 24px 28px;
+
+  background: #edf7fb;
+
+  border: 1px solid #c7e0ec;
+
+  border-radius: 15px;
+}
+
+
+.privacy-box h2 {
+  margin: 0 0 9px;
+
+  color: #07162d;
+
+  font-size: 21px;
+}
+
+
+.privacy-box p {
+  max-width: 900px;
+
+  margin: 0;
+
+  color: #48677d;
+
+  font-size: 15px;
+
+  line-height: 1.6;
+}
+
+
+/* =========================================================
+   BACK
+========================================================= */
+
+.back-area {
+  display: flex;
+
+  justify-content: center;
+
+  margin-top: 25px;
+}
+
+
+.back-button {
+  padding: 10px 20px;
+
+  border: 1px solid #9fc6db;
+
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #286987;
+
+  font-size: 14px;
+
+  font-weight: 700;
+}
+
+
+.back-button:hover {
+  background: #edf7fb;
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.live-footer {
+  padding: 20px;
+
+  border-top: 1px solid #d6e4eb;
+
+  background: #ffffff;
+
+  color: #617789;
+
+  text-align: center;
+
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 900px) {
+
+  .live-header {
+    padding: 0 25px;
+  }
+
+  .live-brand {
+    font-size: 27px;
+  }
+
+  .live-header-status {
+    display: none;
+  }
+
+  .meeting-options {
+    grid-template-columns: 1fr;
+  }
+
+  .participants {
+    grid-template-columns: 1fr;
+  }
+
+  .room-top {
+    flex-direction: column;
+  }
+
+  .room-id-box {
+    width: 100%;
+  }
+}
+
+
+@media (max-width: 600px) {
+
+  .live-header {
+    min-height: 68px;
+
+    padding: 0 18px;
+  }
+
+  .live-brand {
+    font-size: 24px;
+  }
+
+  .live-meeting-id {
+    display: none;
+  }
+
+  .live-main {
+    width: calc(100% - 32px);
+
+    padding: 35px 0 45px;
+  }
+
+  .live-main h1 {
+    font-size: 40px;
+  }
+
+  .live-description {
+    font-size: 16px;
+  }
+
+  .meeting-card {
+    padding: 24px;
+
+    min-height: auto;
+  }
+
+  .meeting-card h2 {
+    font-size: 25px;
+  }
+
+  .meeting-room {
+    padding: 22px;
+  }
+
+  .meeting-controls {
+    flex-direction: column;
+  }
+
+  .control-button,
+  .leave-button {
+    width: 100%;
+  }
+}

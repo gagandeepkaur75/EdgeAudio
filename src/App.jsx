@@ -1,3 +1,4 @@
+import LiveCommunication from "./pages/LiveCommunication";
 import "./App.css";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 
@@ -494,6 +495,10 @@ function App() {
         <Route path="/planning-v2" element={<PlanningV2 />} />
         <Route path="/timeline" element={<Timeline />} />
         <Route path="/architecture" element={<Architecture />} />
+         <Route
+    path="/live-communication"
+    element={<LiveCommunication />}
+  />
         <Route path="/admin" element={<Admin />} />
         <Route path="/live-test" element={<LiveTest />} />
       </Routes>
