@@ -76,29 +76,31 @@ export default function DeliverablePage() {
           position: "sticky",
           top: 0,
           zIndex: 1000,
-          background: "#1e3a8a",
+          background: "#07152b",
           color: "white",
           padding: "0.5rem 1rem",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          boxShadow: "0 2px 5px rgba(0,0,0,0.2)"
+          boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+          borderBottom: "1px solid #173b60"
         }}>
-          <span style={{ fontSize: "0.9rem", fontWeight: "bold" }}>
+          <span style={{ fontSize: "0.9rem", fontWeight: "bold", letterSpacing: "1px" }}>
             Planning V1 Slideshow Deck
           </span>
           <div style={{ display: "flex", gap: "10px" }}>
             <button
               onClick={() => setViewMode("interactive")}
               style={{
-                background: viewMode === "interactive" ? "white" : "transparent",
-                color: viewMode === "interactive" ? "#1e3a8a" : "white",
-                border: "1px solid white",
+                background: viewMode === "interactive" ? "#4aa7c7" : "transparent",
+                color: viewMode === "interactive" ? "#07152b" : "white",
+                border: viewMode === "interactive" ? "1px solid #4aa7c7" : "1px solid rgba(255, 255, 255, 0.4)",
                 padding: "0.3rem 0.8rem",
-                borderRadius: "3px",
+                borderRadius: "4px",
                 cursor: "pointer",
                 fontSize: "0.85rem",
-                fontWeight: "bold"
+                fontWeight: "bold",
+                transition: "all 0.2s"
               }}
             >
               Interactive Slideshow
@@ -106,21 +108,22 @@ export default function DeliverablePage() {
             <button
               onClick={() => setViewMode("metadata")}
               style={{
-                background: viewMode === "metadata" ? "white" : "transparent",
-                color: viewMode === "metadata" ? "#1e3a8a" : "white",
-                border: "1px solid white",
+                background: viewMode === "metadata" ? "#4aa7c7" : "transparent",
+                color: viewMode === "metadata" ? "#07152b" : "white",
+                border: viewMode === "metadata" ? "1px solid #4aa7c7" : "1px solid rgba(255, 255, 255, 0.4)",
                 padding: "0.3rem 0.8rem",
-                borderRadius: "3px",
+                borderRadius: "4px",
                 cursor: "pointer",
                 fontSize: "0.85rem",
-                fontWeight: "bold"
+                fontWeight: "bold",
+                transition: "all 0.2s"
               }}
               disabled={!data}
               title={!data ? "No official presentation file published yet. Upload it in the Admin Panel to unlock details." : ""}
             >
               {data ? "File Details & Download" : "File Details (Unpublished)"}
             </button>
-            <Link to="/" style={{ color: "white", textDecoration: "underline", marginLeft: "1rem", fontSize: "0.85rem", alignSelf: "center" }}>
+            <Link to="/" style={{ color: "#4aa7c7", textDecoration: "underline", marginLeft: "1rem", fontSize: "0.85rem", alignSelf: "center", fontWeight: "bold" }}>
               Back to Home
             </Link>
           </div>
