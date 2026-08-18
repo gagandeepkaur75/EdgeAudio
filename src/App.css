@@ -6608,3 +6608,29 @@ a {
   }
 
 }
+
+/* =========================================================
+   SCROLL SNAPPING FOR SELECT PAGES
+========================================================= */
+
+@media (min-width: 768px) {
+  html.use-snap {
+    scroll-snap-type: y mandatory;
+    scroll-padding-top: 76px; /* Sticky navbar offset */
+    scroll-behavior: smooth;
+  }
+
+  html.use-snap .page-title,
+  html.use-snap .project-section,
+  html.use-snap .architecture-flow {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    min-height: calc(100vh - 156px); /* subtract padding + navbar height */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    margin-bottom: 0 !important;
+    padding: 60px 0 !important;
+    box-sizing: border-box;
+  }
+}

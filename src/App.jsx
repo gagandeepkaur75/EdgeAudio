@@ -69,6 +69,11 @@ function Page({ children }) {
 }
 
 function Project() {
+  useEffect(() => {
+    document.documentElement.classList.add("use-snap");
+    return () => document.documentElement.classList.remove("use-snap");
+  }, []);
+
   return (
     <Page>
       <div className="page-title">
@@ -273,6 +278,11 @@ function PlanningV2() {
 }
 
 function Timeline() {
+  useEffect(() => {
+    document.documentElement.classList.add("use-snap");
+    return () => document.documentElement.classList.remove("use-snap");
+  }, []);
+
   const tasks = [
     ["Weeks 1–2", "Browser Feasibility", "Browser execution and baseline measurements", 1, 2],
     ["Weeks 3–5", "Dataset & Model", "Dataset preparation and model development", 3, 5],
@@ -367,6 +377,11 @@ function Timeline() {
 }
 
 function Architecture() {
+  useEffect(() => {
+    document.documentElement.classList.add("use-snap");
+    return () => document.documentElement.classList.remove("use-snap");
+  }, []);
+
   const parts = [
     ["01", "Frontend", "React-based interface, navigation and live quality display."],
     ["02", "Browser Processing", "Web Audio API, preprocessing and browser-based inference."],
