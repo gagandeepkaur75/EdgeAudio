@@ -20,11 +20,17 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .map((s) => s.trim())
   .filter(Boolean);
 
+console.log('CORS Configured. Allowed Origins:', allowedOrigins);
+
 app.use(
   cors({
     origin(origin, callback) {
+      console.log('CORS request origin:', origin);
       // Allow tools like curl/Postman (no origin header) and any listed origin.
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      console.warn(`Origin ${origin} was rejected by CORS!`);
       callback(new Error(`Origin ${origin} not allowed by CORS`));
     },
   })
