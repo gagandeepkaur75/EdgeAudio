@@ -793,3 +793,55 @@ p {
   color: #356582;
   font-size: 15px;
 }
+
+/* =========================================================
+   DESKTOP COMPACT LAYOUT FOR PLANNING SLIDES (PREVENT OVERLAP)
+========================================================= */
+
+@media (min-width: 768px) {
+  /* Reduce slide margins and paddings */
+  .planning-slide {
+    padding: 35px 7vw !important;
+  }
+  .slide-title {
+    margin-bottom: 25px !important;
+  }
+
+  /* Make Gantt chart more compact */
+  .gantt-line {
+    min-height: 46px !important;
+  }
+  .gantt-task-name {
+    padding: 6px 15px !important;
+  }
+  .gantt-task-name strong {
+    font-size: 13px !important;
+  }
+  .gantt-task-name span {
+    font-size: 10px !important;
+    margin-top: 1px !important;
+  }
+  .gantt-track {
+    padding: 6px 0 !important;
+  }
+  .gantt-track span {
+    height: 24px !important;
+  }
+  .dependency-line {
+    margin-top: 10px !important;
+    padding: 10px 15px !important;
+    font-size: 13px !important;
+  }
+  
+  /* Make Milestone grid more compact */
+  .milestone-grid {
+    gap: 15px !important;
+  }
+  .milestone-grid article {
+    padding: 15px !important;
+  }
+  .milestone-grid article h3 {
+    margin: 5px 0 !important;
+    font-size: 16px !important;
+  }
+}
