@@ -1,0 +1,40 @@
+name: Deploy Backend to AWS EC2
+
+on:
+  push:
+    branches:
+      - main # Triggers the deploy when you push to main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: SSH and Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            # 1. Navigate to monorepo directory on EC2
+            cd /home/ubuntu/edgeaudioqc-backend
+            
+            # 2. Pull the latest code from Git
+            git checkout main
+            git pull origin main
+            
+            # 3. Move into the backend directory
+            cd backend
+            
+            # 4. Install production dependencies
+            npm install --omit=dev
+            
+            # 5. Restart the systemd service to apply changes
+            sudo systemctl restart edgeaudioqc
+            
+            echo "Deployment completed successfully!"
