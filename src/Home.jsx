@@ -59,8 +59,13 @@ function Home() {
             Architecture
           </Link>
 
-          <Link to="/admin" className="side-link">
+          <Link to="/deliverables" className="side-link">
             <span>08</span>
+            Deliverables
+          </Link>
+
+          <Link to="/admin" className="side-link">
+            <span>09</span>
             Admin
           </Link>
 

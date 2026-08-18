@@ -8,6 +8,7 @@ import Planning from "./pages/planning";
 import LiveTest from "./pages/LiveTest";
 import AdminPage from "./pages/AdminPage";
 import DeliverablePage from "./pages/DeliverablePage";
+import DeliverablesHistoryPage from "./pages/DeliverablesHistoryPage";
 import { api } from "./utils/api";
 
 function PageNav() {
@@ -37,6 +38,7 @@ function PageNav() {
         <Link to="/">Home</Link>
         <Link to="/project">Project</Link>
         <Link to="/team">Team</Link>
+        <Link to="/deliverables">Deliverables</Link>
         <Link to="/live-communication">Live Test</Link>
         
         {/* Render dynamic deliverables */}
@@ -471,6 +473,7 @@ function App() {
         <Route path="/architecture" element={<Architecture />} />
         <Route path="/live-communication" element={<LiveCommunication />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/deliverables" element={<DeliverablesHistoryPage />} />
         <Route path="/live-test" element={<LiveTest />} />
         <Route path="/:slug" element={<DeliverablePage />} />
       </Routes>
