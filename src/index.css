@@ -8,3 +8,65 @@ body,
 body {
   margin: 0;
 }
+
+/* Drag and Drop Hover State */
+.upload-box.dragging {
+  border-color: #1e3a8a !important;
+  background-color: rgba(30, 58, 138, 0.08) !important;
+  transform: scale(1.01);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.upload-box.success {
+  border-color: #4caf50 !important;
+  background-color: rgba(76, 175, 80, 0.04) !important;
+}
+
+/* Alert Boxes */
+.alert-error {
+  padding: 1rem;
+  border-left: 4px solid #ef4444;
+  background-color: #fef2f2;
+  color: #991b1b;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+.alert-success {
+  padding: 1rem;
+  border-left: 4px solid #22c55e;
+  background-color: #f0fdf4;
+  color: #166534;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+.alert-info {
+  padding: 1rem;
+  border-left: 4px solid #3b82f6;
+  background-color: #eff6ff;
+  color: #1e40af;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+/* Loading Spinner */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Form inputs styling */
+.form-grid input,
+.form-grid textarea,
+.form-grid select {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-grid input:focus,
+.form-grid textarea:focus,
+.form-grid select:focus {
+  outline: none;
+  border-color: #1e3a8a !important;
+  box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.15);
+}

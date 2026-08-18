@@ -1,12 +1,32 @@
 import LiveCommunication from "./pages/LiveCommunication";
 import "./App.css";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 import Home from "./Home";
 import Planning from "./pages/planning";
 import LiveTest from "./pages/LiveTest";
+import AdminPage from "./pages/AdminPage";
+import DeliverablePage from "./pages/DeliverablePage";
+import { api } from "./utils/api";
 
 function PageNav() {
+  const [deliverables, setDeliverables] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    api.getDeliverables()
+      .then((data) => {
+        if (active) setDeliverables(data);
+      })
+      .catch((err) => {
+        console.error("Failed to load deliverables in navbar:", err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <nav className="inner-nav">
       <Link to="/" className="inner-logo">
@@ -17,8 +37,20 @@ function PageNav() {
         <Link to="/">Home</Link>
         <Link to="/project">Project</Link>
         <Link to="/team">Team</Link>
-        <Link to="/planning-v1">Planning V1</Link>
-        <Link to="/planning-v2">Planning V2</Link>
+        <Link to="/live-communication">Live Test</Link>
+        
+        {/* Render dynamic deliverables */}
+        {deliverables.map((d) => (
+          <Link key={d.slug} to={`/${d.slug}`}>
+            {d.title}
+          </Link>
+        ))}
+        
+        {/* Fallback to Planning V1 link if no deliverables are published */}
+        {deliverables.length === 0 && (
+          <Link to="/planning-v1">Planning V1</Link>
+        )}
+
         <Link to="/timeline">Timeline</Link>
         <Link to="/architecture">Architecture</Link>
         <Link to="/admin">Admin</Link>
@@ -172,9 +204,8 @@ function Project() {
 function Team() {
   const members = [
     ["01", "Gagandeep Kaur", "Frontend & Browser", "React • Web Audio • WebRTC"],
-    ["02", "Prabhleen Kaur", "ML & Speech Processing", "Datasets • MOS • Model"],
+    ["02", "Prabhleen Kaur", "ML, Backend & Speech Processing", "Datasets • MOS • Model • Express • Deployment"],
     ["03", "Dishita ", "Browser ML & Optimization", "ONNX • WebAssembly • Performance"],
-    ["04", "Kunal Gupta", "Backend & Deployment", "Server • Storage • Evaluation"],
   ];
 
   return (
@@ -182,7 +213,7 @@ function Team() {
       <div className="page-title">
         <span>02 — TEAM</span>
         <h1>Our Team</h1>
-        <p>Four members working across frontend, machine learning, browser inference, backend and deployment.</p>
+        <p>Three members working across frontend, machine learning, browser inference, backend and deployment.</p>
       </div>
 
       <div className="team-grid-new">
@@ -414,76 +445,6 @@ function Architecture() {
   );
 }
 
-function Admin() {
-  return (
-    <Page>
-      <div className="page-title">
-        <span>05 — ADMINISTRATION</span>
-        <h1>Instructor / Admin Interface</h1>
-        <p>Sign in, upload, publish and manage presentation versions.</p>
-      </div>
-
-      <section className="project-section">
-        <div className="admin-login">
-          <h2>Admin Sign In</h2>
-          <label>Email</label>
-          <input type="email" placeholder="Instructor email" />
-          <label>Password</label>
-          <input type="password" placeholder="Password" />
-          <button className="navy-button" type="button">Sign In</button>
-        </div>
-      </section>
-
-      <section className="project-section">
-        <h2>Upload Presentation</h2>
-        <div className="upload-box">
-          <div className="upload-icon">↑</div>
-          <h3>Drag & Drop File or Folder</h3>
-          <p>Drop presentation files, PDFs, images or folders here.</p>
-          <button className="outline-button" type="button">Browse Files</button>
-        </div>
-      </section>
-
-      <section className="project-section">
-        <h2>Publication Information</h2>
-        <div className="form-grid">
-          <div>
-            <label>Title</label>
-            <input placeholder="Presentation title" />
-          </div>
-          <div>
-            <label>Presentation Version</label>
-            <input placeholder="V1 / V2" />
-          </div>
-          <div>
-            <label>Date</label>
-            <input type="date" />
-          </div>
-          <div className="full-width">
-            <label>Change Summary</label>
-            <textarea placeholder="Describe changes made in this version" />
-          </div>
-        </div>
-        <button className="navy-button" type="button">Publish Presentation</button>
-      </section>
-
-      <section className="project-section">
-        <h2>Version History</h2>
-        <div className="version-list">
-          <Link to="/planning-v1" className="version-item">
-            <strong>Planning V1</strong>
-            <span>Initial planning presentation</span>
-          </Link>
-          <Link to="/planning-v2" className="version-item">
-            <strong>Planning V2</strong>
-            <span>Updated planning presentation</span>
-          </Link>
-        </div>
-      </section>
-    </Page>
-  );
-}
-
 function App() {
   return (
     <BrowserRouter>
@@ -491,64 +452,15 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/project" element={<Project />} />
         <Route path="/team" element={<Team />} />
-        <Route path="/planning-v1" element={<Planning />} />
-        <Route path="/planning-v2" element={<PlanningV2 />} />
         <Route path="/timeline" element={<Timeline />} />
         <Route path="/architecture" element={<Architecture />} />
-         <Route
-    path="/live-communication"
-    element={<LiveCommunication />}
-  />
-        <Route path="/admin" element={<Admin />} />
+        <Route path="/live-communication" element={<LiveCommunication />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/live-test" element={<LiveTest />} />
+        <Route path="/:slug" element={<DeliverablePage />} />
       </Routes>
     </BrowserRouter>
   );
 }
 
 export default App;
-{/* =====================================================
-    PLANNING PRESENTATION V1 - POWERPOINT
-===================================================== */}
-
-<section className="ppt-section">
-
-  <div className="ppt-header">
-    <p className="section-label">PLANNING PRESENTATION</p>
-
-    <h2>Planning Presentation V1</h2>
-
-    <p>
-      The complete Planning Presentation V1 is available below.
-      The website presentation contains the required project planning,
-      architecture, requirements, risks and development schedule.
-    </p>
-  </div>
-
-  <div className="ppt-actions">
-
-    <a
-      href="/planning-v1.pptx"
-      download="EdgeAudio-QC-Planning-V1.pptx"
-      className="ppt-button primary"
-    >
-      Download PPTX
-    </a>
-
-    <a
-      href="/planning-v1.pptx"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="ppt-button secondary"
-    >
-      Open Presentation
-    </a>
-
-  </div>
-
-  <div className="ppt-notice">
-    <strong>Planning Presentation V1</strong>
-    <span>EdgeAudio-QC • UCS503 Software Project</span>
-  </div>
-
-</section>
