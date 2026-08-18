@@ -54,7 +54,8 @@ button {
 
 @media (min-width: 768px) {
   .planning-slide {
-    height: 100vh;
+    min-height: 100vh;
+    height: auto;
     scroll-snap-align: start;
     scroll-snap-stop: always;
   }
