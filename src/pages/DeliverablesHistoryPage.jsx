@@ -1,24 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../utils/api";
+import PageNav from "../components/PageNav";
 
 function Page({ children }) {
   return (
     <div className="site-page">
-      <nav className="inner-nav">
-        <Link to="/" className="inner-logo">
-          EdgeAudio<span>-QC</span>
-        </Link>
-        <div className="inner-nav-links">
-          <Link to="/">Home</Link>
-          <Link to="/project">Project</Link>
-          <Link to="/team">Team</Link>
-          <Link to="/deliverables" className="active">Deliverables</Link>
-          <Link to="/timeline">Timeline</Link>
-          <Link to="/architecture">Architecture</Link>
-          <Link to="/admin">Admin</Link>
-        </div>
-      </nav>
+      <PageNav />
       <main className="page-container">{children}</main>
     </div>
   );

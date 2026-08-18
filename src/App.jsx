@@ -9,57 +9,8 @@ import LiveTest from "./pages/LiveTest";
 import AdminPage from "./pages/AdminPage";
 import DeliverablePage from "./pages/DeliverablePage";
 import DeliverablesHistoryPage from "./pages/DeliverablesHistoryPage";
+import PageNav from "./components/PageNav";
 import { api } from "./utils/api";
-
-function PageNav() {
-  const [deliverables, setDeliverables] = useState([]);
-
-  useEffect(() => {
-    let active = true;
-    api.getDeliverables()
-      .then((data) => {
-        if (active) setDeliverables(data);
-      })
-      .catch((err) => {
-        console.error("Failed to load deliverables in navbar:", err);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  return (
-    <nav className="inner-nav">
-      <Link to="/" className="inner-logo">
-        EdgeAudio<span>-QC</span>
-      </Link>
-
-      <div className="inner-nav-links">
-        <Link to="/">Home</Link>
-        <Link to="/project">Project</Link>
-        <Link to="/team">Team</Link>
-        <Link to="/deliverables">Deliverables</Link>
-        <Link to="/live-communication">Live Test</Link>
-        
-        {/* Render dynamic deliverables */}
-        {deliverables.map((d) => (
-          <Link key={d.slug} to={`/${d.slug}`}>
-            {d.title}
-          </Link>
-        ))}
-        
-        {/* Fallback to Planning V1 link if no deliverables are published */}
-        {deliverables.length === 0 && (
-          <Link to="/planning-v1">Planning V1</Link>
-        )}
-
-        <Link to="/timeline">Timeline</Link>
-        <Link to="/architecture">Architecture</Link>
-        <Link to="/admin">Admin</Link>
-      </div>
-    </nav>
-  );
-}
 
 function Page({ children }) {
   return (

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../utils/api";
 import Planning from "./planning";
+import PageNav from "../components/PageNav";
 
 export default function DeliverablePage() {
   const { slug } = useParams();
@@ -43,19 +44,7 @@ export default function DeliverablePage() {
   if (loading) {
     return (
       <div className="site-page">
-        <nav className="inner-nav">
-          <Link to="/" className="inner-logo">
-            EdgeAudio<span>-QC</span>
-          </Link>
-          <div className="inner-nav-links">
-            <Link to="/">Home</Link>
-            <Link to="/project">Project</Link>
-            <Link to="/team">Team</Link>
-            <Link to="/timeline">Timeline</Link>
-            <Link to="/architecture">Architecture</Link>
-            <Link to="/admin">Admin</Link>
-          </div>
-        </nav>
+        <PageNav />
         <main className="page-container" style={{ textAlign: "center", padding: "5rem 0" }}>
           <h2>Loading deliverable page...</h2>
           <div className="upload-icon" style={{ animation: "spin 2s linear infinite" }}>⏳</div>
@@ -139,19 +128,7 @@ export default function DeliverablePage() {
   if (!data) {
     return (
       <div className="site-page">
-        <nav className="inner-nav">
-          <Link to="/" className="inner-logo">
-            EdgeAudio<span>-QC</span>
-          </Link>
-          <div className="inner-nav-links">
-            <Link to="/">Home</Link>
-            <Link to="/project">Project</Link>
-            <Link to="/team">Team</Link>
-            <Link to="/timeline">Timeline</Link>
-            <Link to="/architecture">Architecture</Link>
-            <Link to="/admin">Admin</Link>
-          </div>
-        </nav>
+        <PageNav />
         <main className="page-container" style={{ textAlign: "center", padding: "5rem 2rem" }}>
           <div className="upload-icon" style={{ fontSize: "4rem", marginBottom: "1.5rem" }}>⚠️</div>
           <h1>Deliverable Page Not Found</h1>
@@ -220,19 +197,7 @@ export default function DeliverablePage() {
   // Dynamic Metadata and File Download View
   return (
     <div className="site-page">
-      <nav className="inner-nav">
-        <Link to="/" className="inner-logo">
-          EdgeAudio<span>-QC</span>
-        </Link>
-        <div className="inner-nav-links">
-          <Link to="/">Home</Link>
-          <Link to="/project">Project</Link>
-          <Link to="/team">Team</Link>
-          <Link to="/timeline">Timeline</Link>
-          <Link to="/architecture">Architecture</Link>
-          <Link to="/admin">Admin</Link>
-        </div>
-      </nav>
+      <PageNav />
       
       <main className="page-container">
         {/* Switch back button for planning-v1 */}
