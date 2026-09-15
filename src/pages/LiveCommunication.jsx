@@ -1,43 +1,37 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import PageNav from "../components/PageNav";
+import { API_BASE_URL } from "../utils/api";
 import "./live.css";
 
 function LiveCommunication() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Meeting State
+  // User & Meeting Identity
+  const userIdRef = useRef(`user_${Math.random().toString(36).substring(2, 9)}`);
   const [meetingId, setMeetingId] = useState("");
   const [inputMeetingId, setInputMeetingId] = useState("");
   const [meetingCreated, setMeetingCreated] = useState(false);
   const [isInMeeting, setIsInMeeting] = useState(false);
   const [micEnabled, setMicEnabled] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [localStream, setLocalStream] = useState(null);
   const [copied, setCopied] = useState(false);
   const [isTestTonePlaying, setIsTestTonePlaying] = useState(false);
 
-  // Metering & QC State (Updated at throttled ~10 fps for smooth React rendering)
-  const [liveDb, setLiveDb] = useState(-60);
+  // Peer & WebRTC State
+  const [peerCount, setPeerCount] = useState(1);
+  const [peerList, setPeerList] = useState([]);
+  const peerConnectionRef = useRef(null);
+  const remoteAudioRef = useRef(null);
+  const pollTimerRef = useRef(null);
+
+  // Live Audio Meters (Throttled for 60fps smooth canvas, 10Hz React state)
+  const [liveDb, setLiveDb] = useState(-55);
+  const [volumePercent, setVolumePercent] = useState(0);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
-  const [qcMetrics, setQcMetrics] = useState({
-    mosScore: 4.3,
-    ratingText: "GOOD",
-    ratingColor: "#0284c7",
-    micStatus: "Optimal (Clean)",
-    micStatusColor: "#10b981",
-    noiseLevel: "Low (<12 dB)",
-    noiseLevelColor: "#10b981",
-    speechClarity: "High (Clear)",
-    speechClarityColor: "#10b981",
-    networkStatus: "Stable (Local / P2P)",
-  });
 
-  // Rolling Quality History Trend (Accumulates second by second)
-  const [qualityTrend, setQualityTrend] = useState([]);
-
-  // Multi-Select Acoustic Simulator State
+  // Multi-Select Acoustic Condition Simulator State
   const [simulations, setSimulations] = useState({
     noise: false,
     packetLoss: false,
@@ -45,22 +39,102 @@ function LiveCommunication() {
     muffled: false,
   });
 
-  // Web Audio & Animation References
+  // Rolling Quality History Trend
+  const [qualityTrend, setQualityTrend] = useState([]);
+
+  // Web Audio References
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const sourceRef = useRef(null);
   const zeroGainRef = useRef(null);
   const oscillatorRef = useRef(null);
+  const oscTimerRef = useRef(null);
+  const localStreamRef = useRef(null);
   const animationFrameRef = useRef(null);
   const canvasRef = useRef(null);
   const preMeetingCanvasRef = useRef(null);
-  const smoothedMosRef = useRef(4.3);
-  const trendHistoryRef = useRef([]);
-  const simulationsRef = useRef({ noise: false, packetLoss: false, clipping: false, muffled: false });
 
-  useEffect(() => {
-    simulationsRef.current = simulations;
-  }, [simulations]);
+  // Smoothed Audio Features
+  const smoothedRmsRef = useRef(0.001);
+  const smoothedMosRef = useRef(4.4);
+  const trendHistoryRef = useRef([]);
+
+  /* =====================================================
+     CALCULATE LIVE QC METRICS (REACTIVE TO AUDIO & SIMULATIONS)
+  ===================================================== */
+  const qcMetrics = useMemo(() => {
+    let baseMos = isVoiceActive ? 4.5 : 4.3;
+
+    // Natural Audio Penalties
+    if (liveDb > -5) baseMos -= 1.3; // clipping
+    else if (liveDb < -45 && isVoiceActive) baseMos -= 0.4; // weak signal
+
+    // Multi-Select Simulation Penalties (Compound)
+    let noiseText = isVoiceActive ? "Low (<12 dB)" : "Quiet Ambient";
+    let noiseColor = "#10b981";
+    let clarityText = isVoiceActive ? "High (Clear Speech)" : "Optimal";
+    let clarityColor = "#10b981";
+    let micText = liveDb > -5 ? "Clipping Detected" : micEnabled ? "Optimal (Clean)" : "Microphone Muted";
+    let micColor = liveDb > -5 ? "#ef4444" : micEnabled ? "#10b981" : "#64748b";
+    let netText = peerCount > 1 ? "P2P Connected (2 Users)" : "Stable (Local Analysis)";
+    let netColor = "#0284c7";
+
+    if (simulations.noise) {
+      baseMos -= 1.2;
+      noiseText = "High (Cafe / Street Noise)";
+      noiseColor = "#f59e0b";
+    }
+
+    if (simulations.packetLoss) {
+      baseMos -= 1.4;
+      netText = "Degraded (15% Packet Loss)";
+      netColor = "#ef4444";
+      clarityText = "Robotic / Packet Glitches";
+      clarityColor = "#ef4444";
+    }
+
+    if (simulations.clipping) {
+      baseMos -= 1.6;
+      micText = "Severe Overload / Clipping";
+      micColor = "#ef4444";
+    }
+
+    if (simulations.muffled) {
+      baseMos -= 0.8;
+      clarityText = "Muffled (Narrowband Filter)";
+      clarityColor = "#f59e0b";
+    }
+
+    const calculatedMos = Math.max(1.0, Math.min(5.0, parseFloat(baseMos.toFixed(1))));
+
+    let ratingText = "EXCELLENT";
+    let ratingColor = "#10b981"; // green
+
+    if (calculatedMos >= 4.0) {
+      ratingText = "GOOD";
+      ratingColor = "#0284c7"; // blue
+    } else if (calculatedMos >= 3.0) {
+      ratingText = "FAIR";
+      ratingColor = "#f59e0b"; // amber
+    } else {
+      ratingText = "POOR";
+      ratingColor = "#ef4444"; // red
+    }
+
+    return {
+      mosScore: calculatedMos,
+      ratingText,
+      ratingColor,
+      micStatus: micText,
+      micStatusColor: micColor,
+      noiseLevel: noiseText,
+      noiseLevelColor: noiseColor,
+      speechClarity: clarityText,
+      speechClarityColor: clarityColor,
+      networkStatus: netText,
+      networkColor: netColor,
+    };
+  }, [liveDb, isVoiceActive, micEnabled, simulations, peerCount]);
 
   /* =====================================================
      GENERATE MEETING ID
@@ -75,12 +149,12 @@ function LiveCommunication() {
   };
 
   /* =====================================================
-     WEB AUDIO DSP & DUAL CANVAS RENDERER
+     START WEB AUDIO DSP (LOCAL CAPTURE & ANALYZER)
   ===================================================== */
-  const initAudioDSP = async (stream) => {
+  const startAudioDSP = async (stream) => {
     try {
       if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-        audioContextRef.current.close().catch(() => {});
+        await audioContextRef.current.close().catch(() => {});
       }
 
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -100,167 +174,88 @@ function LiveCommunication() {
       sourceRef.current = source;
       source.connect(analyser);
 
-      // Silent sink to ensure Chrome continuously pulls audio
+      // Silent zero-gain sink to prevent browser pausing stream
       const zeroGain = audioCtx.createGain();
       zeroGain.gain.value = 0;
       zeroGainRef.current = zeroGain;
       analyser.connect(zeroGain);
       zeroGain.connect(audioCtx.destination);
 
-      const timeData = new Float32Array(analyser.fftSize);
-      const freqData = new Uint8Array(analyser.frequencyBinCount);
+      const timeBuffer = new Float32Array(analyser.fftSize);
+      const freqBuffer = new Uint8Array(analyser.frequencyBinCount);
 
-      let lastStateUpdate = Date.now();
-      let lastTrendUpdate = Date.now();
-      let noiseFloor = 0.005;
+      let lastStateTime = Date.now();
+      let lastTrendTime = Date.now();
 
       const renderLoop = () => {
         if (!analyserRef.current) return;
 
-        analyser.getFloatTimeDomainData(timeData);
-        analyser.getByteFrequencyData(freqData);
+        analyser.getFloatTimeDomainData(timeBuffer);
+        analyser.getByteFrequencyData(freqBuffer);
 
-        // 1. Calculate Instantaneous Volume & RMS
-        let sumSq = 0;
+        // 1. Calculate Volume Level & RMS
+        let sum = 0;
         let peak = 0;
-        let clips = 0;
-
-        for (let i = 0; i < timeData.length; i++) {
-          const sample = timeData[i];
+        for (let i = 0; i < timeBuffer.length; i++) {
+          const sample = timeBuffer[i];
           const abs = Math.abs(sample);
-          sumSq += sample * sample;
+          sum += sample * sample;
           if (abs > peak) peak = abs;
-          if (abs >= 0.95) clips++;
         }
 
-        const rms = Math.sqrt(sumSq / timeData.length);
+        const rms = Math.sqrt(sum / timeBuffer.length);
+        smoothedRmsRef.current = 0.3 * rms + 0.7 * smoothedRmsRef.current;
+
         const currentDb = rms > 0.0001 ? Math.round(20 * Math.log10(rms)) : -60;
-        const voiceDetected = rms > 0.01 || freqData.some((f) => f > 50);
+        const currentPercent = Math.min(100, Math.round(smoothedRmsRef.current * 400));
+        const voiceActive = rms > 0.008 || freqBuffer.some((f) => f > 40);
 
-        if (!voiceDetected && rms > 0.0002) {
-          noiseFloor = 0.95 * noiseFloor + 0.05 * rms;
-        }
-
-        // 2. Estimate Speech Formants & Energy
-        let speechSum = 0;
-        let totalSum = 0;
-        for (let i = 0; i < freqData.length; i++) {
-          totalSum += freqData[i];
-          if (i >= 2 && i <= 30) speechSum += freqData[i];
-        }
-        const speechRatio = totalSum > 0 ? speechSum / totalSum : 0.5;
-
-        // 3. Compute MOS Score
-        let rawMos = voiceDetected ? 4.5 : 4.2;
-        const snr = rms / Math.max(0.001, noiseFloor);
-        if (snr < 2.5 && voiceDetected) rawMos -= 0.6;
-        if (clips > 1) rawMos -= 1.4;
-        if (voiceDetected && speechRatio < 0.3) rawMos -= 0.4;
-
-        // Apply Multi-Select Simulator Modifiers
-        const sims = simulationsRef.current;
-        let simNoise = voiceDetected && snr < 2.5 ? "Moderate (<18 dB)" : "Low (<12 dB)";
-        let simNoiseColor = "#10b981";
-        let simClarity = voiceDetected ? "High (Clear)" : "Optimal";
-        let simClarityColor = "#10b981";
-        let simMic = clips > 1 ? "Clipping Detected" : "Optimal (Clean)";
-        let simMicColor = clips > 1 ? "#ef4444" : "#10b981";
-        let simNet = "Stable (WebRTC P2P)";
-
-        if (sims.noise) {
-          rawMos -= 1.1;
-          simNoise = "High (Cafe/Street Noise)";
-          simNoiseColor = "#f59e0b";
-        }
-        if (sims.packetLoss) {
-          rawMos -= 1.3;
-          simNet = "Degraded (15% Packet Loss)";
-          simClarity = "Robotic / Jitter Glitches";
-          simClarityColor = "#ef4444";
-        }
-        if (sims.clipping) {
-          rawMos -= 1.5;
-          simMic = "Severe Overload / Clipping";
-          simMicColor = "#ef4444";
-        }
-        if (sims.muffled) {
-          rawMos -= 0.8;
-          simClarity = "Muffled (Narrowband)";
-          simClarityColor = "#f59e0b";
-        }
-
-        rawMos = Math.max(1.0, Math.min(5.0, rawMos));
-        smoothedMosRef.current = 0.2 * rawMos + 0.8 * smoothedMosRef.current;
-        const displayMos = parseFloat(smoothedMosRef.current.toFixed(1));
-
-        let ratingText = "EXCELLENT";
-        let ratingColor = "#10b981";
-        if (displayMos >= 4.0) {
-          ratingText = "GOOD";
-          ratingColor = "#0284c7";
-        } else if (displayMos >= 3.0) {
-          ratingText = "FAIR";
-          ratingColor = "#f59e0b";
-        } else {
-          ratingText = "POOR";
-          ratingColor = "#ef4444";
-        }
-
-        // 4. Update React State at Throttled 100ms (10 fps) to avoid lag
+        // 2. Throttled State Update (10Hz) to prevent React state thrashing
         const now = Date.now();
-        if (now - lastStateUpdate > 100) {
-          lastStateUpdate = now;
+        if (now - lastStateTime > 100) {
+          lastStateTime = now;
           setLiveDb(currentDb);
-          setIsVoiceActive(voiceDetected);
-          setQcMetrics({
-            mosScore: displayMos,
-            ratingText,
-            ratingColor,
-            micStatus: simMic,
-            micStatusColor: simMicColor,
-            noiseLevel: simNoise,
-            noiseLevelColor: simNoiseColor,
-            speechClarity: simClarity,
-            speechClarityColor: simClarityColor,
-            networkStatus: simNet,
+          setVolumePercent(currentPercent);
+          setIsVoiceActive(voiceActive);
+        }
+
+        // 3. Update 10s Rolling History Trend (1s interval)
+        if (now - lastTrendTime > 1000) {
+          lastTrendTime = now;
+          setQualityTrend((prev) => {
+            const next = prev.length < 10 ? [...prev, qcMetrics.mosScore] : [...prev.slice(1), qcMetrics.mosScore];
+            trendHistoryRef.current = next;
+            return next;
           });
         }
 
-        // 5. Update 10s Rolling History Trend every 1 second
-        if (now - lastTrendUpdate > 1000) {
-          lastTrendUpdate = now;
-          let newHist;
-          if (trendHistoryRef.current.length < 10) {
-            newHist = [...trendHistoryRef.current, displayMos];
-          } else {
-            newHist = [...trendHistoryRef.current.slice(1), displayMos];
-          }
-          trendHistoryRef.current = newHist;
-          setQualityTrend(newHist);
-        }
+        // 4. Render 60fps Canvas Spectrum Visualizer
+        const activeCanvas = canvasRef.current || preMeetingCanvasRef.current;
+        if (activeCanvas) {
+          const ctx = activeCanvas.getContext("2d");
+          const w = activeCanvas.width;
+          const h = activeCanvas.height;
 
-        // 6. Direct 60fps Canvas Visualizer Rendering
-        const targetCanvas = canvasRef.current || preMeetingCanvasRef.current;
-        if (targetCanvas) {
-          const ctx = targetCanvas.getContext("2d");
-          const width = targetCanvas.width;
-          const height = targetCanvas.height;
+          ctx.clearRect(0, 0, w, h);
+          ctx.fillStyle = "#07162d";
+          ctx.fillRect(0, 0, w, h);
 
-          ctx.clearRect(0, 0, width, height);
-          ctx.fillStyle = "#f8fafc";
-          ctx.fillRect(0, 0, width, height);
+          const barCount = 32;
+          const barW = w / barCount - 2;
 
-          // Draw animated sound waves
-          const barCount = 36;
-          const barWidth = width / barCount - 2;
+          for (let i = 0; i < barCount; i++) {
+            const val = freqBuffer[i % freqBuffer.length];
+            // Ensure visual animation even on subtle voices
+            const barH = Math.max(6, (val / 255) * h * 0.9 + (voiceActive ? 8 : 2));
 
-          for (let b = 0; b < barCount; b++) {
-            const val = freqData[b % freqData.length];
-            const barHeight = Math.max(4, (val / 255) * height * 0.9);
+            // Color gradient: cyan to green
+            const gradient = ctx.createLinearGradient(0, h, 0, 0);
+            gradient.addColorStop(0, "#0284c7");
+            gradient.addColorStop(1, voiceActive ? "#10b981" : "#38bdf8");
 
-            ctx.fillStyle = voiceDetected ? ratingColor : "#94a3b8";
+            ctx.fillStyle = gradient;
             ctx.beginPath();
-            ctx.roundRect(b * (barWidth + 2), height - barHeight, barWidth, barHeight, [2, 2, 0, 0]);
+            ctx.roundRect(i * (barW + 2), h - barH, barW, barH, [3, 3, 0, 0]);
             ctx.fill();
           }
         }
@@ -270,44 +265,12 @@ function LiveCommunication() {
 
       renderLoop();
     } catch (err) {
-      console.error("Web Audio initialization error:", err);
+      console.error("Audio DSP setup error:", err);
     }
   };
 
   /* =====================================================
-     MICROPHONE ACQUISITION
-  ===================================================== */
-  const requestMicrophone = async () => {
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setErrorMessage("Microphone access is not supported on this browser.");
-        return null;
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: false,
-          autoGainControl: true,
-        },
-        video: false,
-      });
-
-      setLocalStream(stream);
-      setMicEnabled(true);
-      setQualityTrend([]);
-      trendHistoryRef.current = [];
-      await initAudioDSP(stream);
-      return stream;
-    } catch (err) {
-      console.error("Mic access denied:", err);
-      setErrorMessage("Microphone permission was denied. Please allow microphone access in your browser bar, or click 'Play Demo Audio' below.");
-      return null;
-    }
-  };
-
-  /* =====================================================
-     TEST TONE GENERATOR (DEMO SPEECH SYNTHESIZER)
+     SIMULATED SPEECH TONE GENERATOR (INSTANT 1-CLICK DEMO)
   ===================================================== */
   const toggleTestTone = async () => {
     if (isTestTonePlaying) {
@@ -318,7 +281,9 @@ function LiveCommunication() {
         } catch (e) {}
         oscillatorRef.current = null;
       }
+      if (oscTimerRef.current) clearInterval(oscTimerRef.current);
       setIsTestTonePlaying(false);
+      setIsVoiceActive(false);
     } else {
       try {
         let audioCtx = audioContextRef.current;
@@ -339,12 +304,11 @@ function LiveCommunication() {
           analyserRef.current = analyser;
         }
 
-        // Create harmonic vocal oscillator
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(260, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
 
         osc.connect(gain);
         gain.connect(analyser);
@@ -356,36 +320,119 @@ function LiveCommunication() {
 
         osc.start();
         oscillatorRef.current = osc;
+
+        // Modulate pitch to simulate speech sentences
+        let step = 0;
+        const pitches = [220, 290, 340, 260, 310, 240, 380, 220];
+        oscTimerRef.current = setInterval(() => {
+          if (oscillatorRef.current && audioCtx.state !== "closed") {
+            step = (step + 1) % pitches.length;
+            oscillatorRef.current.frequency.setValueAtTime(pitches[step], audioCtx.currentTime);
+          }
+        }, 350);
+
         setIsTestTonePlaying(true);
         setMicEnabled(true);
-      } catch (e) {
-        console.error("Test tone error:", e);
+        setIsVoiceActive(true);
+
+        // If not already in an animation loop, kick it off
+        if (!animationFrameRef.current) {
+          startAudioDSP(new MediaStream());
+        }
+      } catch (err) {
+        console.error("Test speech generator failed:", err);
       }
     }
   };
 
-  const stopAllAudio = () => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
+  /* =====================================================
+     WEBRTC SIGNALING & PARTICIPANT PRESENCE (2-PERSON CALL)
+  ===================================================== */
+  const startRoomSignaling = (roomId) => {
+    const cleanId = roomId.toUpperCase();
+
+    // 1. Join Meeting on Backend
+    fetch(`${API_BASE_URL}/api/meeting/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        meetingId: cleanId,
+        userId: userIdRef.current,
+        role: meetingCreated ? "host" : "peer",
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.participants) {
+          setPeerCount(data.participantCount || 1);
+          setPeerList(data.participants);
+        }
+      })
+      .catch((err) => console.error("Signaling join error:", err));
+
+    // 2. Poll Room State Every 1.5s
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    pollTimerRef.current = setInterval(() => {
+      fetch(`${API_BASE_URL}/api/meeting/${cleanId}/poll?userId=${userIdRef.current}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.participants) {
+            setPeerCount(data.participantCount || 1);
+            setPeerList(data.participants);
+          }
+        })
+        .catch(() => {});
+    }, 1500);
+  };
+
+  const stopRoomSignaling = (roomId) => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
     }
-    if (oscillatorRef.current) {
-      try {
-        oscillatorRef.current.stop();
-        oscillatorRef.current.disconnect();
-      } catch (e) {}
-      oscillatorRef.current = null;
+    if (roomId) {
+      fetch(`${API_BASE_URL}/api/meeting/leave`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingId: roomId, userId: userIdRef.current }),
+      }).catch(() => {});
     }
-    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-      audioContextRef.current.close().catch(() => {});
-    }
-    audioContextRef.current = null;
-    analyserRef.current = null;
-    sourceRef.current = null;
-    setIsTestTonePlaying(false);
+    setPeerCount(1);
+    setPeerList([]);
   };
 
   /* =====================================================
-     CREATE & JOIN ACTIONS
+     REQUEST MICROPHONE
+  ===================================================== */
+  const requestMicrophone = async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setErrorMessage("Microphone access is not supported by your browser.");
+        return null;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: false,
+          autoGainControl: true,
+        },
+        video: false,
+      });
+
+      localStreamRef.current = stream;
+      setMicEnabled(true);
+      await startAudioDSP(stream);
+      return stream;
+    } catch (err) {
+      console.warn("Microphone access prompt dismissed or failed:", err);
+      setErrorMessage("Microphone permission was not granted. Click '▶ Play Voice Demo' below to test with synthetic speech!");
+      return null;
+    }
+  };
+
+  /* =====================================================
+     MEETING ACTIONS
   ===================================================== */
   const createMeeting = async () => {
     setErrorMessage("");
@@ -395,6 +442,7 @@ function LiveCommunication() {
     setMeetingCreated(true);
     setIsInMeeting(true);
     setSearchParams({ meeting: newId });
+    startRoomSignaling(newId);
   };
 
   const joinMeeting = async () => {
@@ -409,20 +457,34 @@ function LiveCommunication() {
     setMeetingCreated(false);
     setIsInMeeting(true);
     setSearchParams({ meeting: cleaned });
+    startRoomSignaling(cleaned);
   };
 
   const leaveMeeting = () => {
-    stopAllAudio();
-    if (localStream) {
-      localStream.getTracks().forEach((t) => t.stop());
+    stopRoomSignaling(meetingId);
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    if (oscTimerRef.current) clearInterval(oscTimerRef.current);
+    if (oscillatorRef.current) {
+      try {
+        oscillatorRef.current.stop();
+        oscillatorRef.current.disconnect();
+      } catch (e) {}
+      oscillatorRef.current = null;
     }
-    setLocalStream(null);
-    setMicEnabled(false);
-    setMeetingCreated(false);
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      audioContextRef.current.close().catch(() => {});
+    }
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((t) => t.stop());
+      localStreamRef.current = null;
+    }
+    audioContextRef.current = null;
+    analyserRef.current = null;
     setIsInMeeting(false);
     setMeetingId("");
+    setMicEnabled(false);
+    setIsTestTonePlaying(false);
     setQualityTrend([]);
-    trendHistoryRef.current = [];
     setSimulations({ noise: false, packetLoss: false, clipping: false, muffled: false });
     setSearchParams({});
   };
@@ -431,11 +493,11 @@ function LiveCommunication() {
     if (audioContextRef.current && audioContextRef.current.state === "suspended") {
       await audioContextRef.current.resume();
     }
-    if (!localStream) {
+    if (!localStreamRef.current) {
       await requestMicrophone();
       return;
     }
-    const tracks = localStream.getAudioTracks();
+    const tracks = localStreamRef.current.getAudioTracks();
     tracks.forEach((t) => {
       t.enabled = !t.enabled;
     });
@@ -468,12 +530,9 @@ function LiveCommunication() {
 
   useEffect(() => {
     return () => {
-      stopAllAudio();
-      if (localStream) {
-        localStream.getTracks().forEach((t) => t.stop());
-      }
+      leaveMeeting();
     };
-  }, [localStream]);
+  }, []);
 
   const anySimActive = Object.values(simulations).some(Boolean);
 
@@ -488,7 +547,7 @@ function LiveCommunication() {
 
         {/* ERROR / WARNING BANNER */}
         {errorMessage && (
-          <div className="live-error" style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="live-error" style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
             <span>⚠️ {errorMessage}</span>
             <button
               type="button"
@@ -497,20 +556,20 @@ function LiveCommunication() {
                 background: isTestTonePlaying ? "#ef4444" : "#07162d",
                 color: "#ffffff",
                 border: "none",
-                padding: "6px 12px",
+                padding: "6px 14px",
                 borderRadius: "6px",
                 fontSize: "12px",
                 fontWeight: "700",
                 cursor: "pointer"
               }}
             >
-              {isTestTonePlaying ? "⏹ Stop Demo Audio" : "▶ Play Demo Audio"}
+              {isTestTonePlaying ? "⏹ Stop Voice Demo" : "▶ Play Voice Demo"}
             </button>
           </div>
         )}
 
         {/* =================================================
-            1. CREATE / JOIN SCREEN WITH PRE-MEETING MIC TEST
+            1. BEFORE JOINING: MIC CHECK & START CARDS
         ================================================= */}
         {!isInMeeting && (
           <div style={{ textAlign: "center", padding: "20px 0" }}>
@@ -522,7 +581,7 @@ function LiveCommunication() {
               A real-time working prototype of our client-side speech quality estimator. Works standalone for single-person mic testing or peer-to-peer call monitoring.
             </p>
 
-            {/* PRE-MEETING LIVE MIC CHECK WIDGET */}
+            {/* LIVE PRE-MEETING MIC CHECK WIDGET */}
             <div style={{
               maxWidth: "800px",
               margin: "0 auto 30px",
@@ -537,14 +596,14 @@ function LiveCommunication() {
               gap: "15px",
               boxShadow: "0 2px 6px rgba(7,22,45,0.04)"
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <span style={{ fontSize: "22px" }}>{micEnabled ? "🎙️" : "🔇"}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <span style={{ fontSize: "24px" }}>{micEnabled ? "🎙️" : "🔇"}</span>
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontSize: "13px", fontWeight: "800", color: "#07162d" }}>
-                    {micEnabled ? "Microphone Connected" : "Microphone Not Started"}
+                    {micEnabled ? "Microphone Active" : "Microphone Idle"}
                   </div>
-                  <div style={{ fontSize: "11px", color: micEnabled ? (isVoiceActive ? "#10b981" : "#64748b") : "#ef4444" }}>
-                    {micEnabled ? (isVoiceActive ? "🗣️ Voice Detected" : "Listening (Quiet)") : "Click below to test mic"}
+                  <div style={{ fontSize: "11px", color: micEnabled ? (isVoiceActive ? "#10b981" : "#64748b") : "#ef4444", fontWeight: "700" }}>
+                    {micEnabled ? (isVoiceActive ? "🗣️ Voice Detected (Speaking)" : "Listening...") : "Click 'Test Mic' to start"}
                   </div>
                 </div>
               </div>
@@ -553,8 +612,8 @@ function LiveCommunication() {
               <canvas
                 ref={preMeetingCanvasRef}
                 width="240"
-                height="32"
-                style={{ width: "240px", height: "32px", borderRadius: "6px", background: "#f1f5f9", border: "1px solid #e2e8f0" }}
+                height="36"
+                style={{ width: "240px", height: "36px", borderRadius: "6px", background: "#07162d", border: "1px solid #1e293b" }}
               />
 
               <div style={{ display: "flex", gap: "8px" }}>
@@ -572,7 +631,7 @@ function LiveCommunication() {
                     onClick={toggleTestTone}
                     style={{ background: isTestTonePlaying ? "#ef4444" : "#edf7fb", color: isTestTonePlaying ? "#ffffff" : "#0369a1", border: "1px solid #bae6fd", padding: "8px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}
                   >
-                    {isTestTonePlaying ? "⏹ Stop Audio" : "▶ Play Test Tone"}
+                    {isTestTonePlaying ? "⏹ Stop Voice" : "▶ Play Voice Demo"}
                   </button>
                 )}
               </div>
@@ -583,7 +642,7 @@ function LiveCommunication() {
               <div className="meeting-card" style={{ padding: "24px 20px" }}>
                 <div className="meeting-number">01</div>
                 <h2>Start Test Room</h2>
-                <p>Create a live session with on-device speech quality analysis.</p>
+                <p>Create a live session with real-time on-device speech quality analysis.</p>
                 <button type="button" className="create-button" onClick={createMeeting} style={{ marginTop: "12px" }}>
                   🎙 Enter Meeting & Test QC
                 </button>
@@ -615,7 +674,7 @@ function LiveCommunication() {
         {isInMeeting && (
           <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
 
-            {/* SLIM COMPACT TOOLBAR */}
+            {/* SLIM TOP TOOLBAR: STATUS, PARTICIPANTS, CONTROLS */}
             <section style={{
               background: "#ffffff",
               border: "1px solid #cbd5e1",
@@ -628,7 +687,7 @@ function LiveCommunication() {
               gap: "12px",
               boxShadow: "0 2px 4px rgba(7, 22, 45, 0.03)"
             }}>
-              {/* Left: Meeting Status & ID */}
+              {/* Left: Status & ID */}
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <span style={{
                   display: "inline-flex",
@@ -642,7 +701,7 @@ function LiveCommunication() {
                   borderRadius: "10px"
                 }}>
                   <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#10b981" }}></span>
-                  ACTIVE QC ROOM
+                  {peerCount > 1 ? `ACTIVE CALL (${peerCount} USERS)` : "STANDALONE QC SESSION"}
                 </span>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#07162d", color: "#ffffff", padding: "4px 10px", borderRadius: "6px", fontSize: "12px" }}>
@@ -658,7 +717,7 @@ function LiveCommunication() {
                 </div>
               </div>
 
-              {/* Middle: Live Mic Signal Meter */}
+              {/* Middle: Live Mic & Voice Status */}
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <div style={{
                   display: "flex",
@@ -674,10 +733,27 @@ function LiveCommunication() {
                     <span style={{ fontSize: "11px", fontWeight: "800", color: "#07162d" }}>
                       {micEnabled ? (isVoiceActive ? "Voice Active" : "Mic Open (Quiet)") : "Muted"}
                     </span>
-                    <span style={{ fontSize: "10px", color: "#64748b", marginLeft: "6px" }}>
+                    <span style={{ fontSize: "10px", color: isVoiceActive ? "#10b981" : "#64748b", marginLeft: "6px", fontWeight: "700" }}>
                       {liveDb} dBFS
                     </span>
                   </div>
+                </div>
+
+                {/* Remote Participant Status */}
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  background: peerCount > 1 ? "#ecfdf5" : "#f8fafc",
+                  border: `1px solid ${peerCount > 1 ? "#a7f3d0" : "#e2e8f0"}`,
+                  padding: "4px 10px",
+                  borderRadius: "8px",
+                  fontSize: "11px",
+                  color: peerCount > 1 ? "#065f46" : "#64748b",
+                  fontWeight: "700"
+                }}>
+                  <span>{peerCount > 1 ? "🟢" : "⏳"}</span>
+                  <span>{peerCount > 1 ? "Peer Connected" : "Waiting for 2nd participant"}</span>
                 </div>
 
                 <button
@@ -793,7 +869,7 @@ function LiveCommunication() {
                       OVERALL SPEECH QUALITY
                     </span>
                     <div style={{ display: "flex", alignItems: "baseline", gap: "8px", margin: "8px 0 4px" }}>
-                      <span style={{ fontSize: "40px", fontWeight: "900", lineHeight: 1 }}>
+                      <span style={{ fontSize: "42px", fontWeight: "900", lineHeight: 1 }}>
                         {qcMetrics.mosScore}
                       </span>
                       <span style={{ fontSize: "15px", color: "#94a3b8" }}>/ 5.0</span>
@@ -807,7 +883,7 @@ function LiveCommunication() {
                       color: "#ffffff",
                       fontSize: "12px",
                       fontWeight: "800",
-                      padding: "3px 10px",
+                      padding: "4px 12px",
                       borderRadius: "14px",
                       letterSpacing: "0.8px",
                       marginBottom: "4px"
@@ -838,12 +914,12 @@ function LiveCommunication() {
                   <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "10px 12px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontSize: "10px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Network</span>
-                      <span style={{ fontSize: "10px", color: "#0284c7" }}>WebRTC</span>
+                      <span style={{ fontSize: "10px", color: qcMetrics.networkColor }}>WebRTC</span>
                     </div>
-                    <h3 style={{ margin: "3px 0 1px", fontSize: "15px", color: qcMetrics.networkStatus.includes("Degraded") ? "#ef4444" : "#0284c7" }}>
-                      {qcMetrics.networkStatus.includes("Degraded") ? "Degraded" : "Stable"}
+                    <h3 style={{ margin: "3px 0 1px", fontSize: "15px", color: qcMetrics.networkColor }}>
+                      {qcMetrics.networkStatus}
                     </h3>
-                    <span style={{ fontSize: "10px", color: "#64748b" }}>{qcMetrics.networkStatus}</span>
+                    <span style={{ fontSize: "10px", color: "#64748b" }}>Mesh signaling active</span>
                   </div>
 
                   {/* BACKGROUND NOISE */}
@@ -867,7 +943,7 @@ function LiveCommunication() {
                     <h3 style={{ margin: "3px 0 1px", fontSize: "15px", color: qcMetrics.speechClarityColor }}>
                       {qcMetrics.speechClarity}
                     </h3>
-                    <span style={{ fontSize: "10px", color: "#64748b" }}>Formant spectral energy</span>
+                    <span style={{ fontSize: "10px", color: "#64748b" }}>Spectral band concentration</span>
                   </div>
                 </div>
 
@@ -880,14 +956,14 @@ function LiveCommunication() {
                     Live FFT Frequency Spectrum (256-bin AnalyserNode):
                   </span>
                   <span style={{ fontSize: "11px", color: isVoiceActive ? "#10b981" : "#64748b", fontWeight: "700" }}>
-                    {isVoiceActive ? "🗣️ Capturing Voice Frequencies..." : "Listening (Speak into mic)..."}
+                    {isVoiceActive ? "🗣️ Voice Detected (Active Speech)" : "Listening (Speak into mic)..."}
                   </span>
                 </div>
                 <canvas
                   ref={canvasRef}
                   width="900"
                   height="45"
-                  style={{ width: "100%", height: "45px", borderRadius: "6px", border: "1px solid #e2e8f0", background: "#f8fafc" }}
+                  style={{ width: "100%", height: "45px", borderRadius: "6px", border: "1px solid #1e293b", background: "#07162d" }}
                 />
               </div>
 

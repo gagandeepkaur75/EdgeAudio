@@ -7,6 +7,7 @@ const { login } = require('./auth');
 const uploadRoute = require('./routes/upload');
 const publishRoute = require('./routes/publish');
 const deliverablesRoute = require('./routes/deliverables');
+const meetingRoute = require('./routes/meeting');
 
 const app = express();
 app.use(express.json());
@@ -44,6 +45,7 @@ app.post('/api/auth/login', login);
 app.use('/api/upload', uploadRoute);
 app.use('/api/publish', publishRoute);
 app.use('/api/deliverables', deliverablesRoute);
+app.use('/api/meeting', meetingRoute);
 
 // Basic error handler so unexpected errors return JSON, not an HTML stack trace
 app.use((err, req, res, next) => {
