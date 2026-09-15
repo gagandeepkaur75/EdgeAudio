@@ -483,7 +483,7 @@ function LiveCommunication() {
      ROOM SIGNALING & PARTICIPANT PRESENCE (2-PERSON CALL)
   ===================================================== */
   const startRoomSignaling = (roomId, isHost = false) => {
-    const cleanId = roomId.toUpperCase();
+    const cleanId = roomId.trim().toUpperCase();
 
     // 1. Join Meeting on Backend
     fetch(`${API_BASE_URL}/api/meeting/join`, {
@@ -495,7 +495,13 @@ function LiveCommunication() {
         role: isHost ? "host" : "peer",
       }),
     })
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to join meeting room.");
+        }
+        return data;
+      })
       .then((data) => {
         if (data.participants) {
           setPeerCount(data.participantCount || 1);
@@ -505,13 +511,19 @@ function LiveCommunication() {
           }
         }
       })
-      .catch((err) => console.error("Signaling join error:", err));
+      .catch((err) => {
+        console.error("Signaling join error:", err);
+        setErrorMessage(err.message || "Failed to connect to room.");
+      });
 
     // 2. Poll Room State Every 1.2s
     if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     pollTimerRef.current = setInterval(() => {
       fetch(`${API_BASE_URL}/api/meeting/${cleanId}/poll?userId=${userIdRef.current}&role=${isHost ? "host" : "peer"}`)
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) throw new Error("Poll returned non-200");
+          return res.json();
+        })
         .then((data) => {
           if (data.participants) {
             setPeerCount(data.participantCount || 1);
@@ -610,6 +622,19 @@ function LiveCommunication() {
       setErrorMessage("Please enter a meeting ID to join.");
       return;
     }
+
+    // Pre-validate room existence on backend before opening meeting room UI
+    try {
+      const checkRes = await fetch(`${API_BASE_URL}/api/meeting/${cleaned}/check`);
+      if (!checkRes.ok) {
+        const checkData = await checkRes.json().catch(() => ({}));
+        setErrorMessage(checkData.error || `Meeting room "${cleaned}" does not exist. Please enter a valid room code.`);
+        return;
+      }
+    } catch (netErr) {
+      console.warn("Network check error, attempting standard join:", netErr);
+    }
+
     await requestMicrophone();
     setMeetingId(cleaned);
     setMeetingCreated(false);

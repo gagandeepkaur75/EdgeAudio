@@ -1,15 +1,15 @@
 const express = require('express');
 const router = express.Router();
 
-// In-memory room state: { [meetingId]: { users: { [userId]: { lastSeen, role } }, signals: { [targetUserId]: [signals] } } }
+// In-memory room state: { [meetingId]: { createdAt, users: { [userId]: { userId, role, joinedAt, lastSeen } }, signals: { [targetUserId]: [signals] } } }
 const rooms = {};
 
-// Clean up inactive rooms/users older than 5 minutes
+// Clean up inactive rooms/users older than 60s
 setInterval(() => {
   const now = Date.now();
   for (const [roomId, room] of Object.entries(rooms)) {
     for (const [userId, user] of Object.entries(room.users)) {
-      if (now - user.lastSeen > 30000) { // 30s timeout
+      if (now - user.lastSeen > 45000) { // 45s timeout
         delete room.users[userId];
         delete room.signals[userId];
       }
@@ -21,7 +21,35 @@ setInterval(() => {
 }, 10000);
 
 /**
- * Join / Heartbeat in a meeting room
+ * Check if a meeting room exists and is active
+ */
+router.get('/:meetingId/check', (req, res) => {
+  const { meetingId } = req.params;
+  if (!meetingId) {
+    return res.status(400).json({ error: 'meetingId is required' });
+  }
+
+  const cleanRoomId = meetingId.trim().toUpperCase();
+  const room = rooms[cleanRoomId];
+
+  if (!room || Object.keys(room.users).length === 0) {
+    return res.status(404).json({
+      exists: false,
+      error: `Meeting room "${cleanRoomId}" does not exist or has ended.`,
+    });
+  }
+
+  const activeParticipants = Object.values(room.users);
+  res.json({
+    exists: true,
+    meetingId: cleanRoomId,
+    participantCount: activeParticipants.length,
+    participants: activeParticipants,
+  });
+});
+
+/**
+ * Create or Join a meeting room with strict validation
  */
 router.post('/join', (req, res) => {
   const { meetingId, userId, role } = req.body;
@@ -29,9 +57,21 @@ router.post('/join', (req, res) => {
     return res.status(400).json({ error: 'meetingId and userId are required' });
   }
 
-  const cleanRoomId = meetingId.toUpperCase();
+  const cleanRoomId = meetingId.trim().toUpperCase();
+  const isHost = role === 'host';
+
+  // If joining as peer (not host), room MUST exist and have active users
+  if (!isHost) {
+    const existingRoom = rooms[cleanRoomId];
+    if (!existingRoom || Object.keys(existingRoom.users).length === 0) {
+      return res.status(404).json({
+        error: `Meeting room "${cleanRoomId}" does not exist. Please check the room code or start a new call.`,
+      });
+    }
+  }
+
   if (!rooms[cleanRoomId]) {
-    rooms[cleanRoomId] = { users: {}, signals: {} };
+    rooms[cleanRoomId] = { createdAt: Date.now(), users: {}, signals: {} };
   }
 
   const room = rooms[cleanRoomId];
@@ -56,7 +96,8 @@ router.post('/join', (req, res) => {
 });
 
 /**
- * Poll for room state and incoming WebRTC signals
+ * Poll for room state, active participants, and incoming WebRTC signals
+ */
 router.get('/:meetingId/poll', (req, res) => {
   const { meetingId } = req.params;
   const { userId, role } = req.query;
@@ -65,12 +106,18 @@ router.get('/:meetingId/poll', (req, res) => {
     return res.status(400).json({ error: 'meetingId and userId are required' });
   }
 
-  const cleanRoomId = meetingId.toUpperCase();
-  if (!rooms[cleanRoomId]) {
-    rooms[cleanRoomId] = { users: {}, signals: {} };
+  const cleanRoomId = meetingId.trim().toUpperCase();
+  const room = rooms[cleanRoomId];
+
+  if (!room) {
+    return res.json({
+      participantCount: 0,
+      participants: [],
+      signals: [],
+    });
   }
 
-  const room = rooms[cleanRoomId];
+  // Update heartbeat for existing user or add if room exists
   if (!room.users[userId]) {
     room.users[userId] = {
       userId,
@@ -105,7 +152,7 @@ router.post('/signal', (req, res) => {
     return res.status(400).json({ error: 'meetingId, senderId, and signalData are required' });
   }
 
-  const cleanRoomId = meetingId.toUpperCase();
+  const cleanRoomId = meetingId.trim().toUpperCase();
   const room = rooms[cleanRoomId];
 
   if (!room) {
@@ -133,7 +180,7 @@ router.post('/signal', (req, res) => {
 router.post('/leave', (req, res) => {
   const { meetingId, userId } = req.body;
   if (meetingId && userId) {
-    const cleanRoomId = meetingId.toUpperCase();
+    const cleanRoomId = meetingId.trim().toUpperCase();
     if (rooms[cleanRoomId]) {
       delete rooms[cleanRoomId].users[userId];
       delete rooms[cleanRoomId].signals[userId];
@@ -146,3 +193,4 @@ router.post('/leave', (req, res) => {
 });
 
 module.exports = router;
+
