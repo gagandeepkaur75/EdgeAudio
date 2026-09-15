@@ -1,9 +1,5 @@
 const getApiUrl = () => {
-  const url = import.meta.env.VITE_API_URL;
-  if (!url) {
-    console.warn("VITE_API_URL is not defined in the environment. Defaulting to http://localhost:3000");
-    return "http://localhost:3000";
-  }
+  const url = import.meta.env.VITE_API_URL || "https://falling-thunder-attitude-indianapolis.trycloudflare.com";
   return url.replace(/\/$/, "");
 };
 
