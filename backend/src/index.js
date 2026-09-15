@@ -13,27 +13,13 @@ const app = express();
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads')));
 
-// Only allow requests from the Cloudflare Pages frontend (and any other
-// origins you list in .env). Without this, the browser blocks the
-// deployed frontend from calling this API at all.
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
-
-console.log('CORS Configured. Allowed Origins:', allowedOrigins);
-
+// Universal CORS configuration to support Cloudflare Workers, Pages, Localhost, and Tunnels
 app.use(
   cors({
-    origin(origin, callback) {
-      console.log('CORS request origin:', origin);
-      // Allow tools like curl/Postman (no origin header) and any listed origin.
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      console.warn(`Origin ${origin} was rejected by CORS!`);
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
-    },
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
 

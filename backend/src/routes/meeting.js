@@ -57,28 +57,31 @@ router.post('/join', (req, res) => {
 
 /**
  * Poll for room state and incoming WebRTC signals
- */
 router.get('/:meetingId/poll', (req, res) => {
   const { meetingId } = req.params;
-  const { userId } = req.query;
+  const { userId, role } = req.query;
 
   if (!meetingId || !userId) {
     return res.status(400).json({ error: 'meetingId and userId are required' });
   }
 
   const cleanRoomId = meetingId.toUpperCase();
-  const room = rooms[cleanRoomId];
-
-  if (!room || !room.users[userId]) {
-    return res.json({
-      participantCount: 0,
-      participants: [],
-      signals: [],
-    });
+  if (!rooms[cleanRoomId]) {
+    rooms[cleanRoomId] = { users: {}, signals: {} };
   }
 
-  // Update heartbeat
-  room.users[userId].lastSeen = Date.now();
+  const room = rooms[cleanRoomId];
+  if (!room.users[userId]) {
+    room.users[userId] = {
+      userId,
+      role: role || 'peer',
+      joinedAt: Date.now(),
+      lastSeen: Date.now(),
+    };
+    if (!room.signals[userId]) room.signals[userId] = [];
+  } else {
+    room.users[userId].lastSeen = Date.now();
+  }
 
   // Pop signals for this user
   const incomingSignals = room.signals[userId] || [];
