@@ -16,31 +16,31 @@ function LiveCommunication() {
   const [errorMessage, setErrorMessage] = useState("");
   const [localStream, setLocalStream] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [isTestSamplePlaying, setIsTestSamplePlaying] = useState(false);
 
   // Live Audio Levels & Metering
   const [micLevel, setMicLevel] = useState(0); // 0 to 100%
-  const [eqLevels, setEqLevels] = useState([10, 10, 10, 10, 10]); // 5 bars
+  const [eqLevels, setEqLevels] = useState([15, 15, 15, 15, 15]); // 5 bars
 
   // Audio Quality QC Metrics State
   const [qcMetrics, setQcMetrics] = useState({
     mosScore: 4.4,
     ratingText: "EXCELLENT",
     ratingColor: "#10b981", // green
-    micStatus: "Optimal",
+    micStatus: "Optimal (Clean)",
     micStatusColor: "#10b981",
     noiseLevel: "Low (<12 dB)",
     noiseLevelColor: "#10b981",
     speechClarity: "High (Clear)",
     speechClarityColor: "#10b981",
     networkStatus: "Stable (WebRTC P2P)",
-    rmsDb: -45,
+    rmsDb: -55,
     isSpeaking: false,
     clippingDetected: false,
   });
 
   // Rolling Quality History Trend (Starts empty, accumulates 1s at a time)
   const [qualityTrend, setQualityTrend] = useState([]);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   // Multi-Select Acoustic Simulator State
   const [simulations, setSimulations] = useState({
@@ -54,6 +54,8 @@ function LiveCommunication() {
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const sourceRef = useRef(null);
+  const oscillatorRef = useRef(null);
+  const zeroGainRef = useRef(null);
   const animationFrameRef = useRef(null);
   const canvasRef = useRef(null);
   const smoothedMosRef = useRef(4.4);
@@ -79,20 +81,37 @@ function LiveCommunication() {
   /* =====================================================
      SETUP WEB AUDIO DSP & REAL-TIME QC ENGINE
   ===================================================== */
-  const startAudioDSP = (stream) => {
+  const startAudioDSP = async (stream) => {
     try {
+      // 1. Initialize AudioContext
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       const audioCtx = new AudioCtx();
       audioContextRef.current = audioCtx;
 
+      // Ensure AudioContext is actively running (fixes Chrome autoplay policy)
+      if (audioCtx.state === "suspended") {
+        await audioCtx.resume();
+      }
+
+      // 2. Create AnalyserNode
       const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 1024;
-      analyser.smoothingTimeConstant = 0.75;
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.65;
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = -10;
       analyserRef.current = analyser;
 
+      // 3. Connect MediaStreamSource
       const source = audioCtx.createMediaStreamSource(stream);
       sourceRef.current = source;
       source.connect(analyser);
+
+      // 4. Create a silent Zero-Gain sink to force Chrome to pump audio frames
+      const zeroGain = audioCtx.createGain();
+      zeroGain.gain.value = 0;
+      zeroGainRef.current = zeroGain;
+      analyser.connect(zeroGain);
+      zeroGain.connect(audioCtx.destination);
 
       const timeDomainBuffer = new Float32Array(analyser.fftSize);
       const frequencyBuffer = new Uint8Array(analyser.frequencyBinCount);
@@ -116,26 +135,28 @@ function LiveCommunication() {
           const abs = Math.abs(sample);
           sumSquares += sample * sample;
           if (abs > peakValue) peakValue = abs;
-          if (abs >= 0.96) clipCount++;
+          if (abs >= 0.94) clipCount++;
         }
 
         const rms = Math.sqrt(sumSquares / timeDomainBuffer.length);
-        const rmsDb = rms > 0.0001 ? Math.round(20 * Math.log10(rms)) : -60;
-        const isSpeaking = rms > 0.012;
+        const rmsDb = rms > 0.0001 ? Math.round(20 * Math.log10(rms)) : -65;
+        
+        // Voice Activity Detection (VAD) threshold
+        const isSpeaking = rms > 0.008 || frequencyBuffer.some((f) => f > 45);
 
-        // Dynamic 5-bar Equalizer heights (10% to 100%)
-        const baseLevel = Math.min(100, Math.round(rms * 350));
+        // Dynamic 5-bar Equalizer heights (15% to 100%)
+        const baseLevel = Math.min(100, Math.round(rms * 450));
         setMicLevel(baseLevel);
 
-        const bar1 = Math.min(100, Math.max(12, Math.round((frequencyBuffer[4] / 255) * 100)));
-        const bar2 = Math.min(100, Math.max(12, Math.round((frequencyBuffer[12] / 255) * 100)));
-        const bar3 = Math.min(100, Math.max(12, Math.round((frequencyBuffer[24] / 255) * 100)));
-        const bar4 = Math.min(100, Math.max(12, Math.round((frequencyBuffer[48] / 255) * 100)));
-        const bar5 = Math.min(100, Math.max(12, Math.round((frequencyBuffer[80] / 255) * 100)));
-        setEqLevels([bar1, bar2, bar3, bar4, bar5]);
+        const b1 = Math.min(100, Math.max(15, Math.round((frequencyBuffer[4] / 255) * 100 * 1.5)));
+        const b2 = Math.min(100, Math.max(15, Math.round((frequencyBuffer[12] / 255) * 100 * 1.5)));
+        const b3 = Math.min(100, Math.max(15, Math.round((frequencyBuffer[24] / 255) * 100 * 1.5)));
+        const b4 = Math.min(100, Math.max(15, Math.round((frequencyBuffer[48] / 255) * 100 * 1.5)));
+        const b5 = Math.min(100, Math.max(15, Math.round((frequencyBuffer[72] / 255) * 100 * 1.5)));
+        setEqLevels([b1, b2, b3, b4, b5]);
 
         // Dynamic noise floor estimation during pauses
-        if (!isSpeaking && rms > 0.0003) {
+        if (!isSpeaking && rms > 0.0002) {
           noiseFloorEst = 0.95 * noiseFloorEst + 0.05 * rms;
         }
 
@@ -163,14 +184,14 @@ function LiveCommunication() {
         if (snrRatio < 2.0 && isSpeaking) rawMos -= 0.7;
         else if (snrRatio < 3.5 && isSpeaking) rawMos -= 0.3;
 
-        const isClipped = clipCount > 2;
-        if (isClipped) rawMos -= 1.3;
+        const isClipped = clipCount > 1;
+        if (isClipped) rawMos -= 1.4;
 
-        if (isSpeaking && speechConcentration < 0.32) rawMos -= 0.4;
+        if (isSpeaking && speechConcentration < 0.30) rawMos -= 0.4;
 
         // Multi-Select Compound Degradation Modifiers
         const currentSims = simulationsRef.current;
-        let simulatedNoise = "Low (<12 dB)";
+        let simulatedNoise = isSpeaking && snrRatio < 2.5 ? "Moderate (<20 dB)" : "Low (<12 dB)";
         let simulatedNoiseColor = "#10b981";
         let simulatedClarity = isSpeaking ? "High (Clear)" : "Optimal";
         let simulatedClarityColor = "#10b981";
@@ -179,18 +200,18 @@ function LiveCommunication() {
         let simulatedNetwork = "Stable (WebRTC P2P)";
 
         if (currentSims.noise) {
-          rawMos -= 1.1;
+          rawMos -= 1.2;
           simulatedNoise = "High (Cafe/Street Noise)";
           simulatedNoiseColor = "#f59e0b";
         }
         if (currentSims.packetLoss) {
-          rawMos -= 1.3;
+          rawMos -= 1.4;
           simulatedNetwork = "Degraded (15% Packet Loss)";
           simulatedClarity = "Robotic / Jitter Glitches";
           simulatedClarityColor = "#ef4444";
         }
         if (currentSims.clipping) {
-          rawMos -= 1.5;
+          rawMos -= 1.6;
           simulatedMic = "Severe Overload / Clipping";
           simulatedMicColor = "#ef4444";
         }
@@ -204,7 +225,7 @@ function LiveCommunication() {
         rawMos = Math.max(1.0, Math.min(5.0, rawMos));
 
         // 4. Temporal Smoothing (EMA)
-        const alpha = 0.20;
+        const alpha = 0.22;
         smoothedMosRef.current = alpha * rawMos + (1 - alpha) * smoothedMosRef.current;
         const displayMos = parseFloat(smoothedMosRef.current.toFixed(1));
 
@@ -226,8 +247,6 @@ function LiveCommunication() {
         // 5. Accumulate Live Trend History (every 1 second)
         if (Date.now() - lastTrendUpdate >= 1000) {
           lastTrendUpdate = Date.now();
-          setElapsedSeconds((prev) => prev + 1);
-
           let newHistory;
           if (trendHistoryRef.current.length < 10) {
             newHistory = [...trendHistoryRef.current, displayMos];
@@ -266,14 +285,14 @@ function LiveCommunication() {
           ctx.fillStyle = "#f8fafc";
           ctx.fillRect(0, 0, width, height);
 
-          const barCount = 44;
-          const barWidth = (width / barCount) - 2;
+          const barCount = 40;
+          const barWidth = width / barCount - 2;
 
           for (let b = 0; b < barCount; b++) {
             const binIndex = Math.floor((b / barCount) * (frequencyBuffer.length / 2));
-            const barHeight = Math.max(3, (frequencyBuffer[binIndex] / 255) * height * 0.85);
+            const barHeight = Math.max(4, (frequencyBuffer[binIndex] / 255) * height * 0.9);
 
-            ctx.fillStyle = ratingColor;
+            ctx.fillStyle = isSpeaking ? ratingColor : "#94a3b8";
             ctx.beginPath();
             ctx.roundRect(b * (barWidth + 2), height - barHeight, barWidth, barHeight, [2, 2, 0, 0]);
             ctx.fill();
@@ -289,9 +308,80 @@ function LiveCommunication() {
     }
   };
 
+  /* =====================================================
+     SYNTHETIC SPEECH AUDIO GENERATOR (FOR DEMO & TEST)
+  ===================================================== */
+  const toggleTestSample = () => {
+    if (isTestSamplePlaying) {
+      // Stop
+      if (oscillatorRef.current) {
+        oscillatorRef.current.stop();
+        oscillatorRef.current.disconnect();
+        oscillatorRef.current = null;
+      }
+      setIsTestSamplePlaying(false);
+    } else {
+      // Start a rich harmonic speech simulation through Web Audio
+      try {
+        let audioCtx = audioContextRef.current;
+        if (!audioCtx || audioCtx.state === "closed") {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AudioCtx();
+          audioContextRef.current = audioCtx;
+        }
+
+        if (audioCtx.state === "suspended") {
+          audioCtx.resume();
+        }
+
+        let analyser = analyserRef.current;
+        if (!analyser) {
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 512;
+          analyserRef.current = analyser;
+        }
+
+        // Create oscillator simulating vocal cords
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(220, audioCtx.currentTime); // 220 Hz pitch
+        
+        // Modulate pitch slightly to simulate natural speech inflection
+        osc.frequency.linearRampToValueAtTime(320, audioCtx.currentTime + 1.0);
+        osc.frequency.linearRampToValueAtTime(180, audioCtx.currentTime + 2.0);
+        osc.frequency.linearRampToValueAtTime(260, audioCtx.currentTime + 3.0);
+
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+
+        osc.connect(gain);
+        gain.connect(analyser);
+
+        // Silent sink to destination
+        const zeroGain = audioCtx.createGain();
+        zeroGain.gain.value = 0;
+        analyser.connect(zeroGain);
+        zeroGain.connect(audioCtx.destination);
+
+        osc.start();
+        oscillatorRef.current = osc;
+        setIsTestSamplePlaying(true);
+      } catch (err) {
+        console.error("Test sample generator failed:", err);
+      }
+    }
+  };
+
   const stopAudioDSP = () => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
+    }
+    if (oscillatorRef.current) {
+      try {
+        oscillatorRef.current.stop();
+        oscillatorRef.current.disconnect();
+      } catch (e) {}
+      oscillatorRef.current = null;
     }
     if (audioContextRef.current && audioContextRef.current.state !== "closed") {
       audioContextRef.current.close().catch(() => {});
@@ -299,6 +389,7 @@ function LiveCommunication() {
     audioContextRef.current = null;
     analyserRef.current = null;
     sourceRef.current = null;
+    setIsTestSamplePlaying(false);
   };
 
   /* =====================================================
@@ -313,7 +404,7 @@ function LiveCommunication() {
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
+          echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
         },
@@ -324,12 +415,11 @@ function LiveCommunication() {
       setMicEnabled(true);
       setQualityTrend([]);
       trendHistoryRef.current = [];
-      setElapsedSeconds(0);
-      startAudioDSP(stream);
+      await startAudioDSP(stream);
       return stream;
     } catch (error) {
       console.error("Microphone error:", error);
-      setErrorMessage("Microphone permission is required to start live speech quality estimation.");
+      setErrorMessage("Microphone permission was denied or not found. You can still click 'Play Test Speech Sample' below to demonstrate the prototype live!");
       return null;
     }
   };
@@ -341,7 +431,14 @@ function LiveCommunication() {
     setErrorMessage("");
     const newMeetingId = generateMeetingId();
     const stream = await requestMicrophone();
-    if (!stream) return;
+    if (!stream) {
+      // Even if mic was blocked, allow entering room to show demo simulation
+      setMeetingId(newMeetingId);
+      setMeetingCreated(true);
+      setIsInMeeting(true);
+      setSearchParams({ meeting: newMeetingId });
+      return;
+    }
 
     setMeetingId(newMeetingId);
     setMeetingCreated(true);
@@ -362,8 +459,6 @@ function LiveCommunication() {
     }
 
     const stream = await requestMicrophone();
-    if (!stream) return;
-
     setMeetingId(cleanedId);
     setMeetingCreated(false);
     setIsInMeeting(true);
@@ -393,8 +488,15 @@ function LiveCommunication() {
   /* =====================================================
      MICROPHONE TOGGLE
   ===================================================== */
-  const toggleMicrophone = () => {
-    if (!localStream) return;
+  const toggleMicrophone = async () => {
+    if (audioContextRef.current && audioContextRef.current.state === "suspended") {
+      await audioContextRef.current.resume();
+    }
+
+    if (!localStream) {
+      await requestMicrophone();
+      return;
+    }
 
     const audioTracks = localStream.getAudioTracks();
     audioTracks.forEach((track) => {
@@ -472,10 +574,26 @@ function LiveCommunication() {
 
       <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "20px 24px 40px", boxSizing: "border-box" }}>
 
-        {/* ERROR BANNER */}
+        {/* ERROR / WARNING BANNER */}
         {errorMessage && (
-          <div className="live-error" style={{ marginBottom: "20px" }}>
-            {errorMessage}
+          <div className="live-error" style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>⚠️ {errorMessage}</span>
+            <button
+              type="button"
+              onClick={toggleTestSample}
+              style={{
+                background: isTestSamplePlaying ? "#ef4444" : "#07162d",
+                color: "#ffffff",
+                border: "none",
+                padding: "6px 14px",
+                borderRadius: "6px",
+                fontSize: "12px",
+                fontWeight: "700",
+                cursor: "pointer"
+              }}
+            >
+              {isTestSamplePlaying ? "⏹ Stop Test Speech" : "▶ Play Test Speech Sample"}
+            </button>
           </div>
         )}
 
@@ -594,7 +712,7 @@ function LiveCommunication() {
                   <div>
                     <div style={{ fontSize: "12px", fontWeight: "800", color: "#07162d", lineHeight: 1.1 }}>You (Local)</div>
                     <div style={{ fontSize: "11px", color: micEnabled ? (qcMetrics.isSpeaking ? "#10b981" : "#64748b") : "#ef4444" }}>
-                      {micEnabled ? (qcMetrics.isSpeaking ? "Speaking" : "Active") : "Muted"}
+                      {micEnabled ? (qcMetrics.isSpeaking ? "Voice Active" : "Microphone Open") : "Muted"}
                     </div>
                   </div>
 
@@ -617,11 +735,23 @@ function LiveCommunication() {
                   )}
                 </div>
 
-                {/* Remote Peer */}
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#f8fafc", border: "1px dashed #cbd5e1", padding: "6px 12px", borderRadius: "10px" }}>
-                  <span style={{ fontSize: "14px" }}>🌐</span>
-                  <div style={{ fontSize: "12px", color: "#64748b" }}>Remote Peer (Ready)</div>
-                </div>
+                {/* Synthetic Speech Test Button */}
+                <button
+                  type="button"
+                  onClick={toggleTestSample}
+                  style={{
+                    background: isTestSamplePlaying ? "#ef4444" : "#edf7fb",
+                    color: isTestSamplePlaying ? "#ffffff" : "#0369a1",
+                    border: `1px solid ${isTestSamplePlaying ? "#ef4444" : "#bae6fd"}`,
+                    padding: "6px 12px",
+                    borderRadius: "8px",
+                    fontSize: "11px",
+                    fontWeight: "700",
+                    cursor: "pointer"
+                  }}
+                >
+                  {isTestSamplePlaying ? "⏹ Stop Test Audio" : "▶ Play Test Speech"}
+                </button>
               </div>
 
               {/* Right: Quick Meeting Controls */}
