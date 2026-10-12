@@ -60,6 +60,7 @@ function LiveCommunication() {
   const currentMosRef = useRef(4.5);
   const lastSpokenMosRef = useRef(null);
   const hasSpokenRef = useRef(false);
+  const lastSpeechTimeRef = useRef(0);
 
   // Web Audio References
   const audioContextRef = useRef(null);
@@ -437,15 +438,33 @@ function LiveCommunication() {
           // Realistic dBFS meter
           const currentDb = rms > 0.0001 ? Math.max(-60, Math.round(20 * Math.log10(rms))) : -60;
           const currentPercent = Math.min(100, Math.round(smoothedRmsRef.current * 450));
-          // Robust Voice Activity Detection (VAD): Formant vocal band (200 Hz - 3.2 kHz)
-          let vocalEnergy = 0;
-          for (let i = 2; i <= 28 && i < freqBuffer.length; i++) {
-            if (freqBuffer[i] > vocalEnergy) vocalEnergy = freqBuffer[i];
+          const now = Date.now();
+
+          // Calibrated Voice Activity Detection (VAD) with Speech Hangover:
+          // Human speech formants concentrate in 250 Hz - 3.8 kHz (FFT bins 2 to 24).
+          // Ambient silence / room noise / AGC sits around RMS 0.004-0.012 and vocal byte 70-110.
+          let vocalSum = 0;
+          let vocalPeak = 0;
+          const startBin = 2;
+          const endBin = 24;
+          for (let i = startBin; i <= endBin && i < freqBuffer.length; i++) {
+            const v = freqBuffer[i];
+            vocalSum += v;
+            if (v > vocalPeak) vocalPeak = v;
           }
-          const voiceActive = isTestTonePlaying || (rms > 0.0045 && vocalEnergy > 30);
+          const vocalAvg = vocalSum / (endBin - startBin + 1);
+
+          // Calibrated speech detection: requires RMS energy > 0.016 (-36 dBFS) AND
+          // formant peak > 120 with spectral prominence above noise floor (or strong peak > 150)
+          const isSpeakingInstant = isTestTonePlaying || (rms > 0.016 && vocalPeak > 120 && (vocalPeak - vocalAvg > 20 || vocalPeak > 150));
+          if (isSpeakingInstant) {
+            lastSpeechTimeRef.current = now;
+          }
+
+          // Speech hangover: stay active for 400ms across natural inter-syllable pauses
+          const voiceActive = isTestTonePlaying || (now - lastSpeechTimeRef.current < 400);
 
           // 2. Throttled State Update (10Hz) to prevent React state thrashing
-          const now = Date.now();
           if (now - lastStateTime > 100) {
             lastStateTime = now;
             setLiveDb(currentDb);
@@ -458,7 +477,7 @@ function LiveCommunication() {
           if (now - lastMlTimeRef.current > 450) {
             lastMlTimeRef.current = now;
             mlAudioAnalyzer.predict().then((res) => {
-              if (res && res.isReady && !res.isSilent) {
+              if (res && res.isReady && !res.isSilent && voiceActive) {
                 setMlState({
                   mos: res.mos,
                   snr: res.snr,
@@ -541,6 +560,7 @@ function LiveCommunication() {
       if (oscTimerRef.current) clearInterval(oscTimerRef.current);
       setIsTestTonePlaying(false);
       setIsVoiceActive(false);
+      lastSpeechTimeRef.current = 0;
     } else {
       try {
         let audioCtx = audioContextRef.current;
@@ -598,6 +618,7 @@ function LiveCommunication() {
         setIsTestTonePlaying(true);
         setMicEnabled(true);
         setIsVoiceActive(true);
+        lastSpeechTimeRef.current = Date.now();
 
         if (!animationFrameRef.current) {
           startAudioDSP(null);
@@ -897,6 +918,8 @@ function LiveCommunication() {
     setQualityTrend([]);
     hasSpokenRef.current = false;
     lastSpokenMosRef.current = null;
+    lastSpeechTimeRef.current = 0;
+    setIsVoiceActive(false);
     setSimulations({ noise: false, packetLoss: false, clipping: false, muffled: false });
     setSearchParams({});
   };
@@ -913,7 +936,12 @@ function LiveCommunication() {
     tracks.forEach((t) => {
       t.enabled = !t.enabled;
     });
-    setMicEnabled(tracks.some((t) => t.enabled));
+    const active = tracks.some((t) => t.enabled);
+    setMicEnabled(active);
+    if (!active) {
+      setIsVoiceActive(false);
+      lastSpeechTimeRef.current = 0;
+    }
   };
 
   const copyMeetingId = async () => {
@@ -1551,7 +1579,7 @@ function LiveCommunication() {
                   </span>
                   <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "700" }}>
                     {qualityTrend.length === 0
-                      ? "Recording live history (0s/10s)..."
+                      ? "Awaiting speech to record quality trend..."
                       : qualityTrend.length < 10
                       ? `Accumulating live history (${qualityTrend.length}s/10s)...`
                       : `Average MOS: ${(qualityTrend.reduce((a, b) => a + b, 0) / qualityTrend.length).toFixed(1)} / 5.0`}

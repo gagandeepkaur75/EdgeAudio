@@ -163,8 +163,8 @@ class MLAudioAnalyzer {
     }
     const rms = Math.sqrt(sumSq / window.length);
 
-    // If quiet ambient / silent (< -48 dB RMS), flag silence and retain last valid speech score
-    if (rms < 0.004) {
+    // If quiet ambient / silent (room noise RMS < 0.015 or peak amplitude < 0.05), flag silence and retain last valid speech score
+    if (rms < 0.015 || peak < 0.05) {
       this.lastResult = {
         ...this.lastResult,
         isSilent: true,
