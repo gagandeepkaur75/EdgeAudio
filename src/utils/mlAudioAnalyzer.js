@@ -163,14 +163,11 @@ class MLAudioAnalyzer {
     }
     const rms = Math.sqrt(sumSq / window.length);
 
-    // If completely silent / muted (< -55 dB RMS), return resting state
-    if (rms < 0.0018) {
+    // If quiet ambient / silent (< -48 dB RMS), flag silence and retain last valid speech score
+    if (rms < 0.004) {
       this.lastResult = {
         ...this.lastResult,
-        mos: 4.4,
-        snr: 40.0,
-        dropoutProb: 0.0,
-        clipProb: 0.0,
+        isSilent: true,
         latencyMs: 0.1,
         engine: "neural_ml",
       };
