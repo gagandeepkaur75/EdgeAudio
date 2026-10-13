@@ -48,6 +48,8 @@ function LiveCommunication() {
   const [liveDb, setLiveDb] = useState(-60);
   const [volumePercent, setVolumePercent] = useState(0);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [isScoreHeld, setIsScoreHeld] = useState(false);
+  const isScoreHeldRef = useRef(false);
 
   // Multi-Select Acoustic Condition Simulator State
   const [simulations, setSimulations] = useState({
@@ -97,6 +99,7 @@ function LiveCommunication() {
     const isActuallySpeaking = (micEnabled || isTestTonePlaying) && (isVoiceActive || isTestTonePlaying);
     const hasScore = mlState.hasPrediction && Number.isFinite(mlState.mos);
     const calculatedMos = hasScore ? Math.max(1, Math.min(5, mlState.mos)) : null;
+    const canShowHeldScore = (isScoreHeld || isActuallySpeaking) && calculatedMos !== null && (micEnabled || isTestTonePlaying);
 
     let ratingText = "MODEL LOADING";
     let ratingColor = "#64748b";
@@ -105,6 +108,9 @@ function LiveCommunication() {
     } else if (isActuallySpeaking && calculatedMos !== null) {
       ratingText = calculatedMos >= 4 ? "GOOD" : calculatedMos >= 3 ? "FAIR" : "POOR";
       ratingColor = calculatedMos >= 4 ? "#0284c7" : calculatedMos >= 3 ? "#f59e0b" : "#ef4444";
+    } else if (canShowHeldScore) {
+      ratingText = calculatedMos >= 4 ? "GOOD (PAUSED)" : calculatedMos >= 3 ? "FAIR (PAUSED)" : "POOR (PAUSED)";
+      ratingColor = "#64748b";
     } else {
       ratingText = "LISTENING";
     }
@@ -122,6 +128,10 @@ function LiveCommunication() {
       displayScore = calculatedMos.toFixed(1);
       statusNote = "Score computed by the on-device EdgeAudioNet model";
       isSilent = false;
+    } else if (canShowHeldScore) {
+      displayScore = calculatedMos.toFixed(1);
+      statusNote = "Speech paused · Holding evaluated score (resumes on next word)";
+      isSilent = true;
     } else if (isActuallySpeaking && !mlState.hasPrediction) {
       ratingText = "ANALYZING";
       statusNote = "Waiting for the first on-device ML prediction";
@@ -132,7 +142,7 @@ function LiveCommunication() {
       ? "Microphone Muted"
       : mlState.clipProb > 0.35 || simulations.clipping || liveDb > -5
       ? `Overload Detected (${Math.round(Math.max(mlState.clipProb, simulations.clipping ? 0.9 : 0.4) * 100)}% Saturation)`
-      : isActuallySpeaking ? "Speech Input Active" : `Quiet Input (${liveDb} dBFS)`;
+      : isActuallySpeaking ? "Speech Input Active" : canShowHeldScore ? `Quiet Pause (${liveDb} dBFS)` : `Quiet Input (${liveDb} dBFS)`;
     const micColor = micText.startsWith("Overload") ? "#ef4444" : isActuallySpeaking ? "#10b981" : "#64748b";
 
     const networkStatus = simulations.packetLoss
@@ -145,7 +155,7 @@ function LiveCommunication() {
     const noiseColor = snrVal >= 25 ? "#10b981" : snrVal >= 12 ? "#f59e0b" : "#ef4444";
     const speechClarity = simulations.muffled
       ? "Muffled (Low-Pass Filter)"
-      : isActuallySpeaking ? "Speech Input Active" : "Awaiting Voice";
+      : isActuallySpeaking ? "Speech Input Active" : canShowHeldScore ? "Formants Retained" : "Awaiting Voice";
 
     return {
       mosScore: calculatedMos,
@@ -166,7 +176,7 @@ function LiveCommunication() {
       latencyMs: mlState.latencyMs,
       rawSnr: snrVal,
     };
-  }, [liveDb, isVoiceActive, micEnabled, isTestTonePlaying, simulations, peerCount, mlState]);
+  }, [liveDb, isVoiceActive, isScoreHeld, micEnabled, isTestTonePlaying, simulations, peerCount, mlState]);
 
   // Keep currentMosRef in sync for rolling trend graph without stale closures
   useEffect(() => {
@@ -330,23 +340,35 @@ function LiveCommunication() {
             const correlation = cross / Math.sqrt(Math.max(leftEnergy * rightEnergy, 1e-20));
             pitchCorrelation = Math.max(pitchCorrelation, correlation);
           }
-          const speechLevel = rms > Math.max(0.012, estimatedNoiseFloor * 2.2);
-          const speechLikeSpectrum = speechBandRatio > 0.68 && spectralFlatness < 0.62;
-          const speechDynamics = energyVariation > 0.06 || spectralChange > 0.24;
-          const voicedSound = pitchCorrelation > 0.38;
-          const isSpeakingInstant = isTestTonePlayingRef.current || (energyHistory.length >= 12 && speechLevel && speechLikeSpectrum && speechDynamics && voicedSound);
+          const speechLevel = rms > Math.max(0.011, estimatedNoiseFloor * 2.0);
+          const speechLikeSpectrum = speechBandRatio > 0.62 && spectralFlatness < 0.68;
+          const speechDynamics = energyVariation > 0.05 || spectralChange > 0.20;
+          const voicedSound = pitchCorrelation > 0.34;
+          const isSpeakingInstant = isTestTonePlayingRef.current || (
+            energyHistory.length >= 10 &&
+            speechLevel &&
+            speechLikeSpectrum &&
+            (voicedSound || (speechDynamics && wasVoiceActiveRef.current))
+          );
 
           if (!isSpeakingInstant) {
             noiseFloorRef.current = Math.max(0.001, estimatedNoiseFloor * 0.97 + Math.min(rms, estimatedNoiseFloor * 2.5) * 0.03);
           }
           if (isSpeakingInstant) lastSpeechTimeRef.current = now;
-          const voiceActive = isTestTonePlayingRef.current || (now - lastSpeechTimeRef.current < 500);
-          if (voiceActive && !wasVoiceActiveRef.current) {
+
+          // Speech hangover: 1400ms bridges natural inter-word and inter-phrase pauses
+          const voiceActive = isTestTonePlayingRef.current || (now - lastSpeechTimeRef.current < 1400);
+
+          // Score hold timer: holds evaluated score for 3500ms of silence before reverting to em dash
+          const isHolding = (micEnabled || isTestTonePlayingRef.current) && lastSpeechTimeRef.current > 0 && (now - lastSpeechTimeRef.current < 3500);
+          if (isHolding !== isScoreHeldRef.current) {
+            isScoreHeldRef.current = isHolding;
+            setIsScoreHeld(isHolding);
+          }
+
+          // Buffer management: reset on fresh speech only after prolonged silence (>3500ms)
+          if (voiceActive && !wasVoiceActiveRef.current && (now - lastSpeechTimeRef.current > 3500)) {
             mlAudioAnalyzer.resetBuffer();
-            setMlState((prev) => ({ ...prev, mos: null, hasPrediction: false }));
-          } else if (!voiceActive && wasVoiceActiveRef.current) {
-            mlAudioAnalyzer.resetBuffer();
-            setMlState((prev) => ({ ...prev, mos: null, hasPrediction: false }));
           }
           wasVoiceActiveRef.current = voiceActive;
 
@@ -471,6 +493,9 @@ function LiveCommunication() {
       isTestTonePlayingRef.current = false;
       setIsVoiceActive(false);
       lastSpeechTimeRef.current = 0;
+      isScoreHeldRef.current = false;
+      setIsScoreHeld(false);
+      setMlState((prev) => ({ ...prev, mos: null, hasPrediction: false }));
       return;
     }
 
@@ -808,6 +833,9 @@ function LiveCommunication() {
     isTestTonePlayingRef.current = false;
     setQualityTrend([]);
     lastSpeechTimeRef.current = 0;
+    isScoreHeldRef.current = false;
+    setIsScoreHeld(false);
+    setMlState((prev) => ({ ...prev, mos: null, hasPrediction: false }));
     speechEnergyHistoryRef.current = [];
     noiseFloorRef.current = 0.003;
     packetLossCursorRef.current = 0;
@@ -835,6 +863,9 @@ function LiveCommunication() {
     if (!active) {
       setIsVoiceActive(false);
       lastSpeechTimeRef.current = 0;
+      isScoreHeldRef.current = false;
+      setIsScoreHeld(false);
+      setMlState((prev) => ({ ...prev, mos: null, hasPrediction: false }));
     }
   };
 
