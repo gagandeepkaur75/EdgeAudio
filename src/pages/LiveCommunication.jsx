@@ -59,8 +59,6 @@ function LiveCommunication() {
   // Rolling Quality History Trend
   const [qualityTrend, setQualityTrend] = useState([]);
   const currentMosRef = useRef(null);
-  const lastSpokenMosRef = useRef(null);
-  const hasSpokenRef = useRef(false);
   const lastSpeechTimeRef = useRef(0);
 
   // Web Audio References
@@ -94,11 +92,6 @@ function LiveCommunication() {
     const hasScore = mlState.hasPrediction && Number.isFinite(mlState.mos);
     const calculatedMos = hasScore ? Math.max(1, Math.min(5, mlState.mos)) : null;
 
-    if (isActuallySpeaking && calculatedMos !== null) {
-      hasSpokenRef.current = true;
-      lastSpokenMosRef.current = calculatedMos;
-    }
-
     let ratingText = "MODEL LOADING";
     let ratingColor = "#64748b";
     if (!mlState.isLoaded) {
@@ -121,10 +114,6 @@ function LiveCommunication() {
       displayScore = calculatedMos.toFixed(1);
       statusNote = "Score computed by the on-device EdgeAudioNet model";
       isSilent = false;
-    } else if (hasSpokenRef.current && lastSpokenMosRef.current !== null) {
-      displayScore = lastSpokenMosRef.current.toFixed(1);
-      ratingText = "PAUSED (LAST ML SCORE)";
-      statusNote = "Speech paused; showing the last score produced by the ML model";
     } else if (isActuallySpeaking && !mlState.hasPrediction) {
       ratingText = "ANALYZING";
       statusNote = "Waiting for the first on-device ML prediction";
@@ -739,8 +728,6 @@ function LiveCommunication() {
     setMicEnabled(false);
     setIsTestTonePlaying(false);
     setQualityTrend([]);
-    hasSpokenRef.current = false;
-    lastSpokenMosRef.current = null;
     lastSpeechTimeRef.current = 0;
     setIsVoiceActive(false);
     setSimulations({ noise: false, packetLoss: false, clipping: false, muffled: false });
