@@ -88,6 +88,20 @@ function LiveCommunication() {
   const animationFrameRef = useRef(null);
   const canvasRef = useRef(null);
 
+  // Demo Voices & PC Audio Capture State
+  const DEMO_VOICE_OPTIONS = [
+    { id: "male", name: "Studio Male Voice", url: "/audio/demo_male.wav" },
+    { id: "female", name: "Studio Female Voice", url: "/audio/demo_female.wav" },
+    { id: "conversational", name: "Conversational Dialogue", url: "/audio/demo_conversational.wav" },
+  ];
+  const [selectedDemoVoice, setSelectedDemoVoice] = useState("male");
+  const [customAudioName, setCustomAudioName] = useState("");
+  const [isSystemAudioActive, setIsSystemAudioActive] = useState(false);
+  const customAudioBufferRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const demoAudioCacheRef = useRef({});
+  const systemStreamRef = useRef(null);
+
   // Smoothed Audio Features
   const smoothedRmsRef = useRef(0.001);
 
@@ -522,40 +536,38 @@ function LiveCommunication() {
   };
 
   /* =====================================================
-     LOCAL DEMO VOICE SOURCE
+     MULTI-VOICE DEMO PLAYBACK & CUSTOM AUDIO PIPELINE
   ===================================================== */
-  const toggleTestTone = async () => {
-    if (isTestTonePlaying) {
-      if (demoSourceRef.current) {
-        try {
-          demoSourceRef.current.stop();
-          demoSourceRef.current.disconnect();
-        } catch (e) {}
-        demoSourceRef.current = null;
-      }
-      if (demoMonitorGainRef.current) {
-        demoMonitorGainRef.current.gain.value = 0.0;
-      }
-      if (oscillatorRef.current) {
-        try {
-          oscillatorRef.current.stop();
-          oscillatorRef.current.disconnect();
-        } catch (e) {}
-        oscillatorRef.current = null;
-      }
-      if (oscTimerRef.current) clearInterval(oscTimerRef.current);
-      oscTimerRef.current = null;
-      setIsTestTonePlaying(false);
-      isTestTonePlayingRef.current = false;
-      setIsVoiceActive(false);
-      lastSpeechTimeRef.current = 0;
-      isScoreHeldRef.current = false;
-      setIsScoreHeld(false);
-      mlAudioAnalyzer.resetBuffer();
-      setMlState((prev) => ({ ...prev, mos: null, hasPrediction: false }));
-      return;
+  const stopDemoVoice = () => {
+    if (demoSourceRef.current) {
+      try {
+        demoSourceRef.current.stop();
+        demoSourceRef.current.disconnect();
+      } catch (e) {}
+      demoSourceRef.current = null;
     }
+    if (demoMonitorGainRef.current) {
+      demoMonitorGainRef.current.gain.value = 0.0;
+    }
+    if (oscTimerRef.current) clearInterval(oscTimerRef.current);
+    if (oscillatorRef.current) {
+      try {
+        oscillatorRef.current.stop();
+        oscillatorRef.current.disconnect();
+      } catch (e) {}
+      oscillatorRef.current = null;
+    }
+    setIsTestTonePlaying(false);
+    isTestTonePlayingRef.current = false;
+    setIsVoiceActive(false);
+    lastSpeechTimeRef.current = 0;
+    isScoreHeldRef.current = false;
+    setIsScoreHeld(false);
+    mlAudioAnalyzer.resetBuffer();
+    setMlState((prev) => ({ ...prev, mos: null, hasPrediction: false }));
+  };
 
+  const playDemoVoice = async (voiceId = selectedDemoVoice) => {
     try {
       if (!audioContextRef.current || audioContextRef.current.state === "closed" || !analyserRef.current) {
         await startAudioDSP(null);
@@ -564,29 +576,40 @@ function LiveCommunication() {
       if (!audioCtx) throw new Error("Audio analysis graph is unavailable");
       if (audioCtx.state === "suspended") await audioCtx.resume();
 
-      // Load studio-quality human voice recording (/audio/demo_voice.wav)
-      if (!demoAudioBufferRef.current) {
-        const resp = await fetch("/audio/demo_voice.wav");
-        const arrayBuf = await resp.arrayBuffer();
-        demoAudioBufferRef.current = await audioCtx.decodeAudioData(arrayBuf);
+      // Stop existing playback before switching
+      if (demoSourceRef.current) {
+        try { demoSourceRef.current.stop(); demoSourceRef.current.disconnect(); } catch (e) {}
+        demoSourceRef.current = null;
       }
 
-      // Create looping buffer source for continuous clean speech
-      const source = audioCtx.createBufferSource();
-      source.buffer = demoAudioBufferRef.current;
-      source.loop = true;
+      let audioBuffer = null;
+      if (voiceId === "custom") {
+        if (!customAudioBufferRef.current) {
+          if (fileInputRef.current) fileInputRef.current.click();
+          return;
+        }
+        audioBuffer = customAudioBufferRef.current;
+      } else {
+        if (!demoAudioCacheRef.current[voiceId]) {
+          const opt = DEMO_VOICE_OPTIONS.find((v) => v.id === voiceId) || DEMO_VOICE_OPTIONS[0];
+          const resp = await fetch(opt.url);
+          const arrayBuf = await resp.arrayBuffer();
+          demoAudioCacheRef.current[voiceId] = await audioCtx.decodeAudioData(arrayBuf);
+        }
+        audioBuffer = demoAudioCacheRef.current[voiceId];
+      }
 
-      // Connect into DSP graph before degradation filters
+      const source = audioCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.loop = true;
       source.connect(filterNodeRef.current || analyserRef.current);
       demoSourceRef.current = source;
 
-      // Enable speaker monitor gain so user clearly hears realistic human voice
       if (demoMonitorGainRef.current) {
         demoMonitorGainRef.current.gain.value = 0.35;
       }
 
       source.start();
-
       setIsTestTonePlaying(true);
       isTestTonePlayingRef.current = true;
       setIsVoiceActive(true);
@@ -594,8 +617,112 @@ function LiveCommunication() {
       setErrorMessage("");
     } catch (err) {
       console.error("Test speech generator failed:", err);
-      setErrorMessage("The demo voice could not start. Check that your browser allows audio playback, then try again.");
+      setErrorMessage("The demo voice could not start: " + (err.message || "playback error"));
     }
+  };
+
+  const toggleTestTone = async () => {
+    if (isTestTonePlaying) {
+      stopDemoVoice();
+    } else {
+      await playDemoVoice(selectedDemoVoice);
+    }
+  };
+
+  const handleVoiceChange = async (newVoiceId) => {
+    setSelectedDemoVoice(newVoiceId);
+    if (newVoiceId === "custom") {
+      if (fileInputRef.current) fileInputRef.current.click();
+    } else if (isTestTonePlaying) {
+      await playDemoVoice(newVoiceId);
+    }
+  };
+
+  const handleCustomFileUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      if (!audioContextRef.current || audioContextRef.current.state === "closed") {
+        await startAudioDSP(null);
+      }
+      const audioCtx = audioContextRef.current;
+      const arrayBuf = await file.arrayBuffer();
+      const decoded = await audioCtx.decodeAudioData(arrayBuf);
+      customAudioBufferRef.current = decoded;
+      setCustomAudioName(file.name);
+      setSelectedDemoVoice("custom");
+      if (isTestTonePlaying) {
+        stopDemoVoice();
+      }
+      setTimeout(() => {
+        playDemoVoice("custom");
+      }, 50);
+    } catch (err) {
+      console.error("File decode error:", err);
+      setErrorMessage("Could not decode audio file. Please use a valid .wav or .mp3 file.");
+    }
+  };
+
+  /* =====================================================
+     SYSTEM AUDIO / PC AUDIO CAPTURE (YOUTUBE, CALLS, MP3)
+  ===================================================== */
+  const startSystemAudioCapture = async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        setErrorMessage("Screen/System audio capture is not supported in this browser.");
+        return;
+      }
+      if (isTestTonePlaying) stopDemoVoice();
+
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: {
+          echoCancellation: false,
+          autoGainControl: false,
+          noiseSuppression: false,
+        },
+      });
+
+      const audioTracks = stream.getAudioTracks();
+      if (!audioTracks || audioTracks.length === 0) {
+        stream.getTracks().forEach((t) => t.stop());
+        setErrorMessage("No PC audio was captured! When sharing your Chrome Tab or Screen, make sure to check the 'Share audio' checkbox.");
+        return;
+      }
+
+      // Stop unused video track to conserve CPU
+      stream.getVideoTracks().forEach((vt) => vt.stop());
+
+      // If mic was running, stop it cleanly
+      if (localStreamRef.current && localStreamRef.current !== stream) {
+        localStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+
+      systemStreamRef.current = stream;
+      localStreamRef.current = stream;
+      setIsSystemAudioActive(true);
+      setMicEnabled(true);
+      micEnabledRef.current = true;
+
+      audioTracks[0].onended = () => {
+        stopSystemAudioCapture();
+      };
+
+      await startAudioDSP(stream);
+      setErrorMessage("");
+    } catch (err) {
+      console.warn("System audio capture cancelled or error:", err);
+    }
+  };
+
+  const stopSystemAudioCapture = async () => {
+    if (systemStreamRef.current) {
+      systemStreamRef.current.getTracks().forEach((t) => t.stop());
+      systemStreamRef.current = null;
+    }
+    setIsSystemAudioActive(false);
+    setMicEnabled(false);
+    micEnabledRef.current = false;
   };
 
   /* =====================================================
@@ -908,6 +1035,11 @@ function LiveCommunication() {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
       localStreamRef.current = null;
     }
+    if (systemStreamRef.current) {
+      systemStreamRef.current.getTracks().forEach((t) => t.stop());
+      systemStreamRef.current = null;
+    }
+    setIsSystemAudioActive(false);
     audioContextRef.current = null;
     analyserRef.current = null;
     setIsInMeeting(false);
@@ -1165,21 +1297,65 @@ function LiveCommunication() {
                 <span>{peerCount > 1 ? `Peer Connected (${peerCount} in room)` : "Waiting for 2nd participant"}</span>
               </div>
 
+              {/* Voice Selection & Playback */}
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <select
+                  value={selectedDemoVoice}
+                  onChange={(e) => handleVoiceChange(e.target.value)}
+                  style={{
+                    background: "#ffffff",
+                    color: "#0f172a",
+                    border: "1px solid #cbd5e1",
+                    padding: "5px 8px",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    outline: "none"
+                  }}
+                >
+                  {DEMO_VOICE_OPTIONS.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.id === "custom" && customAudioName ? `📂 ${customAudioName}` : opt.label}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={toggleTestTone}
+                  style={{
+                    background: isTestTonePlaying ? "#ef4444" : "#edf7fb",
+                    color: isTestTonePlaying ? "#ffffff" : "#0369a1",
+                    border: `1px solid ${isTestTonePlaying ? "#ef4444" : "#bae6fd"}`,
+                    padding: "5px 10px",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    fontWeight: "700",
+                    cursor: "pointer"
+                  }}
+                >
+                  {isTestTonePlaying ? "⏹ Stop" : "▶ Play"}
+                </button>
+              </div>
+
+              {/* PC / System Audio Capture */}
               <button
                 type="button"
-                onClick={toggleTestTone}
+                onClick={isSystemAudioActive ? stopSystemAudioCapture : startSystemAudioCapture}
                 style={{
-                  background: isTestTonePlaying ? "#ef4444" : "#edf7fb",
-                  color: isTestTonePlaying ? "#ffffff" : "#0369a1",
-                  border: `1px solid ${isTestTonePlaying ? "#ef4444" : "#bae6fd"}`,
-                  padding: "6px 12px",
+                  background: isSystemAudioActive ? "#dc2626" : "#f0fdf4",
+                  color: isSystemAudioActive ? "#ffffff" : "#166534",
+                  border: `1px solid ${isSystemAudioActive ? "#b91c1c" : "#bbf7d0"}`,
+                  padding: "5px 10px",
                   borderRadius: "6px",
                   fontSize: "11px",
                   fontWeight: "700",
                   cursor: "pointer"
                 }}
+                title="Capture audio from PC (YouTube, Spotify, etc.)"
               >
-                {isTestTonePlaying ? "⏹ Stop Demo Voice" : "▶ Play Demo Voice"}
+                {isSystemAudioActive ? "⏹ Stop PC Audio" : "🖥️ Capture PC Audio"}
               </button>
             </div>
 
@@ -1309,21 +1485,76 @@ function LiveCommunication() {
                   <span>{micEnabled ? "🔇 Mute Microphone" : "🎙️ Enable Microphone"}</span>
                 </button>
 
+                {/* Voice Selection & Playback */}
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <select
+                    value={selectedDemoVoice}
+                    onChange={(e) => handleVoiceChange(e.target.value)}
+                    style={{
+                      background: "#f8fafc",
+                      color: "#0f172a",
+                      border: "1px solid #cbd5e1",
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      outline: "none"
+                    }}
+                  >
+                    {DEMO_VOICE_OPTIONS.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.id === "custom" && customAudioName ? `📂 ${customAudioName}` : opt.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={toggleTestTone}
+                    style={{
+                      background: isTestTonePlaying ? "#ef4444" : "#edf7fb",
+                      color: isTestTonePlaying ? "#ffffff" : "#0369a1",
+                      border: `1px solid ${isTestTonePlaying ? "#ef4444" : "#bae6fd"}`,
+                      padding: "8px 14px",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      fontWeight: "700",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {isTestTonePlaying ? "⏹ Stop Voice" : "▶ Play Voice"}
+                  </button>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleCustomFileUpload}
+                    style={{ display: "none" }}
+                  />
+                </div>
+
+                {/* PC / System Audio Capture (YouTube, MP3s, Video Calls) */}
                 <button
                   type="button"
-                  onClick={toggleTestTone}
+                  onClick={isSystemAudioActive ? stopSystemAudioCapture : startSystemAudioCapture}
                   style={{
-                    background: isTestTonePlaying ? "#ef4444" : "#edf7fb",
-                    color: isTestTonePlaying ? "#ffffff" : "#0369a1",
-                    border: `1px solid ${isTestTonePlaying ? "#ef4444" : "#bae6fd"}`,
-                    padding: "8px 16px",
+                    background: isSystemAudioActive ? "#dc2626" : "#f0fdf4",
+                    color: isSystemAudioActive ? "#ffffff" : "#166534",
+                    border: `1px solid ${isSystemAudioActive ? "#b91c1c" : "#bbf7d0"}`,
+                    padding: "8px 14px",
                     borderRadius: "8px",
                     fontSize: "12px",
                     fontWeight: "700",
-                    cursor: "pointer"
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px"
                   }}
+                  title="Capture and score audio from YouTube, Spotify, MP3 files, or desktop video calls"
                 >
-                  {isTestTonePlaying ? "⏹ Stop Demo Voice" : "▶ Play Demo Voice"}
+                  <span>{isSystemAudioActive ? "⏹ Stop PC Audio" : "🖥️ Capture PC Audio (YouTube / Calls)"}</span>
                 </button>
 
                 {/* Live VU / Status meter */}
@@ -1340,7 +1571,13 @@ function LiveCommunication() {
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <span style={{ fontSize: "11px", fontWeight: "800", color: "#07162d" }}>
-                        {isTestTonePlaying ? "Demo Voice Playing" : micEnabled ? (isVoiceActive ? "Voice Active" : "Mic Open (Quiet)") : "Mic Idle"}
+                        {isTestTonePlaying
+                          ? "Voice Sample Playing"
+                          : isSystemAudioActive
+                            ? (isVoiceActive ? "🖥️ PC Audio Active" : "🖥️ PC Audio (Idle)")
+                            : micEnabled
+                              ? (isVoiceActive ? "Voice Active" : "Mic Open (Shared Call Monitoring)")
+                              : "Mic Idle"}
                       </span>
                       <span style={{ fontSize: "10px", color: isVoiceActive ? "#10b981" : "#64748b", fontWeight: "700" }}>
                         {liveDb} dBFS
@@ -1491,7 +1728,7 @@ function LiveCommunication() {
                   {/* Engine Details Footer */}
                   <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: "8px" }}>
                     <div style={{ fontSize: "11px", fontWeight: "800", color: "#38bdf8" }}>
-                      {"EdgeAudioNet v2 (SE-Conv-GRU + Attention)"}
+                      {"EdgeAudioNet v2"}
                     </div>
                     <div style={{ fontSize: "10px", color: "#94a3b8", display: "flex", justifyContent: "space-between", marginTop: "3px" }}>
                       <span>{qcMetrics.isSilent ? "VAD: Listening..." : `WASM: ${qcMetrics.latencyMs}ms`}</span>

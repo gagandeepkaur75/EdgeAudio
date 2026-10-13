@@ -196,16 +196,25 @@ class MLAudioAnalyzer {
         if (bRms > maxSliceRms) maxSliceRms = bRms;
       }
 
-      // Collect active slices (energy >= 15% of peak slice energy)
+      // Robustly estimate room ambient noise floor (median of lowest 50% energy slices)
+      const sortedRms = [...sliceRms].sort((a, b) => a - b);
+      const halfLen = Math.floor(sortedRms.length / 2);
+      const noiseFloor = sortedRms.slice(0, halfLen).reduce((a, b) => a + b, 0) / Math.max(1, halfLen);
+
+      // Adaptive speech vocal threshold: separates true vocal formants from room noise floor
+      // and natural inter-word pauses without falsely dropping soft phonemes
+      const vocalThreshold = Math.max(0.0012, noiseFloor + 0.18 * (maxSliceRms - noiseFloor));
+
+      // Collect active vocal slices
       const activeBlocks = [];
       for (let idx = 0; idx < sliceRms.length; idx++) {
-        if (sliceRms[idx] >= Math.max(0.003, maxSliceRms * 0.15)) {
+        if (sliceRms[idx] >= vocalThreshold) {
           activeBlocks.push(window.subarray(idx * sliceLen, (idx + 1) * sliceLen));
         }
       }
 
       let evalWindow;
-      if (activeBlocks.length >= 2) {
+      if (activeBlocks.length >= 1) {
         evalWindow = new Float32Array(this.windowSize);
         const catLen = activeBlocks.length * sliceLen;
         for (let i = 0; i < this.windowSize; i++) {
@@ -224,9 +233,10 @@ class MLAudioAnalyzer {
       }
 
       // Dynamic Active Speech Level Normalization (target reference 0.88 peak)
+      // Scales quiet laptop/headset microphones up to reference studio speech levels
       const normalizedWindow = new Float32Array(this.windowSize);
       const targetPeak = 0.88;
-      const scaleFactor = Math.min(35.0, targetPeak / Math.max(evalPeak, 0.01));
+      const scaleFactor = Math.min(50.0, targetPeak / Math.max(evalPeak, 0.005));
       for (let i = 0; i < this.windowSize; i++) {
         normalizedWindow[i] = evalWindow[i] * scaleFactor;
       }
