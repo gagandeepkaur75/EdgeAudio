@@ -63,6 +63,8 @@ function LiveCommunication() {
   const speechEnergyHistoryRef = useRef([]);
   const noiseFloorRef = useRef(0.003);
   const wasVoiceActiveRef = useRef(false);
+  const isVoiceActiveRef = useRef(false);
+  const micEnabledRef = useRef(false);
 
   // Rolling Quality History Trend
   const [qualityTrend, setQualityTrend] = useState([]);
@@ -85,7 +87,6 @@ function LiveCommunication() {
   const localStreamRef = useRef(null);
   const animationFrameRef = useRef(null);
   const canvasRef = useRef(null);
-  const preMeetingCanvasRef = useRef(null);
 
   // Smoothed Audio Features
   const smoothedRmsRef = useRef(0.001);
@@ -129,14 +130,16 @@ function LiveCommunication() {
     if (!micEnabled && !isTestTonePlaying) {
       ratingText = "MIC MUTED";
       statusNote = "Enable the microphone or play the demo voice to analyze audio";
-    } else if (isActuallySpeaking && calculatedMos !== null) {
+    } else if (calculatedMos !== null) {
       displayScore = calculatedMos.toFixed(1);
-      statusNote = "Score computed by the on-device EdgeAudioNet model";
-      isSilent = false;
-    } else if (canShowHeldScore) {
-      displayScore = calculatedMos.toFixed(1);
-      statusNote = "Speech paused · Holding evaluated score (resumes on next word)";
-      isSilent = true;
+      statusNote = isActuallySpeaking
+        ? "Score computed by the on-device EdgeAudioNet model"
+        : "Speech paused · Holding evaluated score (resumes on next word)";
+      isSilent = !isActuallySpeaking;
+      if (!isActuallySpeaking) {
+        ratingText = calculatedMos >= 4 ? "GOOD (PAUSED)" : calculatedMos >= 3 ? "FAIR (PAUSED)" : "POOR (PAUSED)";
+        ratingColor = "#64748b";
+      }
     } else if (isActuallySpeaking && !mlState.hasPrediction) {
       ratingText = "ANALYZING";
       statusNote = "Waiting for the first on-device ML prediction";
@@ -281,7 +284,7 @@ function LiveCommunication() {
         }
 
         // Push continuous, gapless PCM into ML active speech buffer
-        if (isVoiceActiveRef.current || isTestTonePlayingRef.current) {
+        if (micEnabledRef.current || isTestTonePlayingRef.current) {
           mlAudioAnalyzer.pushAudio(output, sampleRate);
         }
       };
@@ -442,13 +445,14 @@ function LiveCommunication() {
             setLiveDb(currentDb);
             setVolumePercent(currentPercent);
             setIsVoiceActive(voiceActive);
+            isVoiceActiveRef.current = voiceActive;
           }
 
           // Periodic ML inference runs on the continuous active speech buffer
           if (voiceActive && now - lastMlTimeRef.current > 400) {
             lastMlTimeRef.current = now;
             mlAudioAnalyzer.predict().then((res) => {
-              if (res && res.isReady && !res.isSilent && voiceActive) {
+              if (res && res.isReady && !res.isSilent) {
                 setMlState({
                   mos: res.mos,
                   snr: res.snr,
@@ -474,7 +478,7 @@ function LiveCommunication() {
           }
 
           // 4. Render 60fps Canvas Spectrum Visualizer (Safe universal fillRect)
-          const activeCanvas = canvasRef.current || preMeetingCanvasRef.current;
+          const activeCanvas = canvasRef.current;
           if (activeCanvas) {
             const ctx = activeCanvas.getContext("2d");
             const w = activeCanvas.width;
@@ -794,6 +798,16 @@ function LiveCommunication() {
         return null;
       }
 
+      if (localStreamRef.current && localStreamRef.current.getAudioTracks().some((t) => t.readyState === "live")) {
+        localStreamRef.current.getAudioTracks().forEach((t) => { t.enabled = true; });
+        setMicEnabled(true);
+        micEnabledRef.current = true;
+        if (!audioContextRef.current || audioContextRef.current.state === "closed") {
+          await startAudioDSP(localStreamRef.current);
+        }
+        return localStreamRef.current;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -805,6 +819,7 @@ function LiveCommunication() {
 
       localStreamRef.current = stream;
       setMicEnabled(true);
+      micEnabledRef.current = true;
       await startAudioDSP(stream);
       return stream;
     } catch (err) {
@@ -898,6 +913,7 @@ function LiveCommunication() {
     setIsInMeeting(false);
     setMeetingId("");
     setMicEnabled(false);
+    micEnabledRef.current = false;
     setIsTestTonePlaying(false);
     isTestTonePlayingRef.current = false;
     setQualityTrend([]);
@@ -929,6 +945,7 @@ function LiveCommunication() {
     });
     const active = tracks.some((t) => t.enabled);
     setMicEnabled(active);
+    micEnabledRef.current = active;
     if (!active) {
       setIsVoiceActive(false);
       lastSpeechTimeRef.current = 0;
@@ -1042,37 +1059,199 @@ function LiveCommunication() {
         )}
 
         {/* =================================================
-            1. BEFORE JOINING: MIC CHECK & START CARDS
+            TOP SECTION: CALL TOOLBAR (IF IN CALL) OR STANDALONE SESSION BAR (IF NOT)
         ================================================= */}
-        {!isInMeeting && (
-          <div style={{ textAlign: "center", padding: "20px 0" }}>
-            <div className="live-label" style={{ marginBottom: "10px" }}>06 — PROTOTYPE DEMO</div>
-            <h1 style={{ color: "#07162d", fontSize: "32px", margin: "0 0 10px" }}>
-              EdgeAudio-QC Live Communication
-            </h1>
-            <p style={{ color: "#55748a", maxWidth: "700px", margin: "0 auto 25px", fontSize: "15px", lineHeight: "1.5" }}>
-              A real-time working prototype of our client-side speech quality estimator. Works standalone for single-person mic testing or peer-to-peer call monitoring.
-            </p>
+        {isInMeeting ? (
+          /* SLIM TOP TOOLBAR: STATUS, PARTICIPANTS, CONTROLS */
+          <section style={{
+            background: "#ffffff",
+            border: "1px solid #cbd5e1",
+            borderRadius: "12px",
+            padding: "12px 18px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "12px",
+            marginBottom: "14px",
+            boxShadow: "0 2px 6px rgba(7, 22, 45, 0.04)"
+          }}>
+            {/* Left: Status & ID */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                background: peerCount > 1 ? "#ecfdf5" : "#edf7fb",
+                color: peerCount > 1 ? "#065f46" : "#0369a1",
+                fontSize: "12px",
+                fontWeight: "800",
+                padding: "5px 10px",
+                borderRadius: "12px",
+                border: `1px solid ${peerCount > 1 ? "#a7f3d0" : "#bae6fd"}`
+              }}>
+                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: peerCount > 1 ? "#10b981" : "#0284c7" }}></span>
+                {peerCount > 1 ? `🟢 ACTIVE CALL (${peerCount} USERS IN CALL)` : "STANDALONE QC SESSION"}
+              </span>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#07162d", color: "#ffffff", padding: "5px 12px", borderRadius: "8px", fontSize: "12px" }}>
+                <span style={{ color: "#94a3b8" }}>Room:</span>
+                <strong>{meetingId}</strong>
+                <button
+                  type="button"
+                  onClick={copyMeetingId}
+                  style={{ background: "transparent", border: "none", color: "#38bdf8", cursor: "pointer", fontSize: "11px", fontWeight: "700", marginLeft: "4px" }}
+                >
+                  {copied ? "✓ Copied" : "Copy Code"}
+                </button>
+                <button
+                  type="button"
+                  onClick={copyInviteLink}
+                  style={{ background: "#0369a1", border: "none", color: "#ffffff", cursor: "pointer", fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "4px", marginLeft: "4px" }}
+                >
+                  {copiedLink ? "✓ Link Copied!" : "🔗 Share Link"}
+                </button>
+              </div>
+            </div>
+
+            {/* Middle: Live Mic & Voice Status & VU Bar */}
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#f1f5f9",
+                border: `1px solid ${isVoiceActive ? "#10b981" : "#cbd5e1"}`,
+                padding: "5px 12px",
+                borderRadius: "8px"
+              }}>
+                <span style={{ fontSize: "15px" }}>{micEnabled ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "11px", fontWeight: "800", color: "#07162d" }}>
+                      {micEnabled ? (isVoiceActive ? "Voice Active" : "Mic Open (Quiet)") : "Muted"}
+                    </span>
+                    <span style={{ fontSize: "10px", color: isVoiceActive ? "#10b981" : "#64748b", fontWeight: "700" }}>
+                      {liveDb} dBFS
+                    </span>
+                  </div>
+
+                  {/* Animated Volume Meter */}
+                  <div style={{ width: "90px", height: "4px", background: "#cbd5e1", borderRadius: "2px", overflow: "hidden", marginTop: "2px" }}>
+                    <div style={{
+                      width: `${volumePercent}%`,
+                      height: "100%",
+                      background: volumePercent > 80 ? "#ef4444" : "#10b981",
+                      transition: "width 0.08s ease"
+                    }}></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Remote Participant Status */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                background: peerCount > 1 ? "#ecfdf5" : "#f8fafc",
+                border: `1px solid ${peerCount > 1 ? "#a7f3d0" : "#e2e8f0"}`,
+                padding: "5px 12px",
+                borderRadius: "8px",
+                fontSize: "11px",
+                color: peerCount > 1 ? "#065f46" : "#64748b",
+                fontWeight: "700"
+              }}>
+                <span>{peerCount > 1 ? "🟢" : "⏳"}</span>
+                <span>{peerCount > 1 ? `Peer Connected (${peerCount} in room)` : "Waiting for 2nd participant"}</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={toggleTestTone}
+                style={{
+                  background: isTestTonePlaying ? "#ef4444" : "#edf7fb",
+                  color: isTestTonePlaying ? "#ffffff" : "#0369a1",
+                  border: `1px solid ${isTestTonePlaying ? "#ef4444" : "#bae6fd"}`,
+                  padding: "6px 12px",
+                  borderRadius: "6px",
+                  fontSize: "11px",
+                  fontWeight: "700",
+                  cursor: "pointer"
+                }}
+              >
+                {isTestTonePlaying ? "⏹ Stop Demo Voice" : "▶ Play Demo Voice"}
+              </button>
+            </div>
+
+            {/* Right: Controls */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <button
+                type="button"
+                onClick={toggleMicrophone}
+                style={{
+                  background: micEnabled ? "#07162d" : "#ef4444",
+                  color: "#ffffff",
+                  border: "none",
+                  padding: "7px 14px",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  cursor: "pointer"
+                }}
+              >
+                {micEnabled ? "Mute Mic" : "Unmute Mic"}
+              </button>
+
+              <button
+                type="button"
+                onClick={leaveMeeting}
+                style={{
+                  background: "#fee2e2",
+                  color: "#b91c1c",
+                  border: "1px solid #fecaca",
+                  padding: "7px 14px",
+                  borderRadius: "6px",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  cursor: "pointer"
+                }}
+              >
+                Leave Call
+              </button>
+            </div>
+          </section>
+        ) : (
+          /* BEFORE JOINING / STANDALONE SESSION CONTROLS */
+          <div style={{ marginBottom: "14px" }}>
+            <div style={{ textAlign: "center", padding: "10px 0 16px" }}>
+              <div className="live-label" style={{ marginBottom: "8px" }}>06 — PROTOTYPE DEMO</div>
+              <h1 style={{ color: "#07162d", fontSize: "32px", margin: "0 0 8px" }}>
+                EdgeAudio-QC Live Communication
+              </h1>
+              <p style={{ color: "#55748a", maxWidth: "760px", margin: "0 auto", fontSize: "14px", lineHeight: "1.5" }}>
+                Real-time on-device speech quality estimator. Speak into your microphone or play the studio demo voice to evaluate live MOS scores and simulate acoustic conditions.
+              </p>
+            </div>
 
             {/* INVITE BANNER (IF OPENED WITH ?meeting=ID) */}
             {urlParamMeetingId && (
               <div style={{
-                maxWidth: "800px",
-                margin: "0 auto 20px",
+                maxWidth: "100%",
+                margin: "0 0 16px",
                 background: "#ecfdf5",
                 border: "2px solid #10b981",
                 borderRadius: "12px",
-                padding: "14px 20px",
+                padding: "12px 18px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 flexWrap: "wrap",
-                gap: "12px",
+                gap: "10px",
                 boxShadow: "0 4px 12px rgba(16, 185, 129, 0.1)"
               }}>
-                <div style={{ textAlign: "left" }}>
+                <div>
                   <span style={{ fontSize: "11px", fontWeight: "800", color: "#047857", textTransform: "uppercase" }}>Room Invitation</span>
-                  <div style={{ fontSize: "16px", fontWeight: "800", color: "#065f46" }}>
+                  <div style={{ fontSize: "15px", fontWeight: "800", color: "#065f46" }}>
                     You have been invited to call: <span style={{ color: "#07162d" }}>{urlParamMeetingId.toUpperCase()}</span>
                   </div>
                 </div>
@@ -1083,12 +1262,11 @@ function LiveCommunication() {
                     background: "#10b981",
                     color: "#ffffff",
                     border: "none",
-                    padding: "10px 22px",
+                    padding: "8px 18px",
                     borderRadius: "8px",
-                    fontSize: "14px",
+                    fontSize: "13px",
                     fontWeight: "800",
-                    cursor: "pointer",
-                    boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)"
+                    cursor: "pointer"
                   }}
                 >
                   🎙️ Join Call Now
@@ -1096,127 +1274,7 @@ function LiveCommunication() {
               </div>
             )}
 
-            {/* LIVE PRE-MEETING MIC CHECK WIDGET */}
-            <div style={{
-              maxWidth: "800px",
-              margin: "0 auto 30px",
-              background: "#ffffff",
-              border: "1px solid #cbd5e1",
-              borderRadius: "14px",
-              padding: "18px 22px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: "15px",
-              boxShadow: "0 2px 8px rgba(7,22,45,0.04)"
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                <span style={{ fontSize: "28px" }}>{micEnabled ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
-                <div style={{ textAlign: "left" }}>
-                  <div style={{ fontSize: "14px", fontWeight: "800", color: "#07162d" }}>
-                    {isTestTonePlaying ? "Demo voice playing" : micEnabled ? (isVoiceActive ? "Speaking (Voice Detected)" : "Microphone Active (Listening)") : "Microphone Idle"}
-                  </div>
-                  <div style={{ fontSize: "12px", color: audioInputActive ? (isVoiceActive ? "#10b981" : "#0284c7") : "#64748b", fontWeight: "700" }}>
-                    {audioInputActive ? `${liveDb} dBFS · Volume: ${volumePercent}%` : "Test the microphone or play the demo voice"}
-                  </div>
-
-                  {/* Neural Engine status badge */}
-                  <div style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    background: mlState.isLoaded ? "#ecfdf5" : "#edf7fb",
-                    color: mlState.isLoaded ? "#065f46" : "#0369a1",
-                    border: `1px solid ${mlState.isLoaded ? "#a7f3d0" : "#bae6fd"}`,
-                    borderRadius: "12px",
-                    padding: "2px 8px",
-                    fontSize: "10px",
-                    fontWeight: "800",
-                    marginTop: "4px"
-                  }}>
-                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: mlState.isLoaded ? "#10b981" : "#0284c7" }}></span>
-                    <span>{mlState.isLoaded ? "EdgeAudioNet v2 ML Ready (401 KB)" : "Loading Neural Engine..."}</span>
-                  </div>
-
-                  {/* Real-time Bouncing VU Meter Bar */}
-                  {audioInputActive && (
-                    <div style={{ width: "160px", height: "6px", background: "#e2e8f0", borderRadius: "3px", overflow: "hidden", marginTop: "4px" }}>
-                      <div style={{
-                        width: `${volumePercent}%`,
-                        height: "100%",
-                        background: volumePercent > 85 ? "#ef4444" : "#10b981",
-                        transition: "width 0.08s ease"
-                      }}></div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* LIVE PRE-MEETING FFT CANVAS */}
-              <canvas
-                ref={preMeetingCanvasRef}
-                width="240"
-                height="40"
-                style={{ width: "240px", height: "40px", borderRadius: "6px", background: "#07162d", border: "1px solid #1e293b" }}
-              />
-
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  type="button"
-                  onClick={micEnabled ? toggleMicrophone : requestMicrophone}
-                  style={{ background: "#07162d", color: "#ffffff", border: "none", padding: "10px 18px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}
-                >
-                  {micEnabled ? "Mute Microphone" : "Test Microphone"}
-                </button>
-                <button
-                  type="button"
-                  onClick={toggleTestTone}
-                  style={{ background: isTestTonePlaying ? "#ef4444" : "#edf7fb", color: isTestTonePlaying ? "#ffffff" : "#0369a1", border: "1px solid #bae6fd", padding: "10px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}
-                >
-                  {isTestTonePlaying ? "Stop Demo Voice" : "Play Demo Voice"}
-                </button>
-              </div>
-            </div>
-
-            {/* CREATE / JOIN / STANDALONE CARDS */}
-            <section className="meeting-options" style={{ maxWidth: "800px", margin: "0 auto" }}>
-              <div className="meeting-card" style={{ padding: "26px 22px" }}>
-                <div className="meeting-number">01</div>
-                <h2>Start QC Session</h2>
-                <p>Create a live call room with on-device speech quality estimation and WebRTC mesh signaling.</p>
-                <button type="button" className="create-button" onClick={createMeeting} style={{ marginTop: "12px", width: "100%" }}>
-                  🎙 Enter Meeting & Test QC
-                </button>
-              </div>
-
-              <div className="meeting-card" style={{ padding: "26px 22px" }}>
-                <div className="meeting-number">02</div>
-                <h2>Join a Call</h2>
-                <p>Enter a shared room code to test 2-person real-time WebRTC speech monitoring.</p>
-                <input
-                  type="text"
-                  value={inputMeetingId}
-                  onChange={(e) => setInputMeetingId(e.target.value)}
-                  placeholder="e.g. EA-QC-X8K9M2"
-                  className="meeting-input"
-                  style={{ margin: "8px 0" }}
-                />
-                <button type="button" className="join-button" onClick={() => joinMeeting()} style={{ width: "100%" }}>
-                  Join Room
-                </button>
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* =================================================
-            2. ACTIVE LIVE MEETING ROOM & QUALITY DASHBOARD
-        ================================================= */}
-        {isInMeeting && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-
-            {/* SLIM TOP TOOLBAR: STATUS, PARTICIPANTS, CONTROLS */}
+            {/* STANDALONE ACTION BAR: AUDIO CONTROLS + CALL CREATION */}
             <section style={{
               background: "#ffffff",
               border: "1px solid #cbd5e1",
@@ -1229,46 +1287,46 @@ function LiveCommunication() {
               gap: "12px",
               boxShadow: "0 2px 6px rgba(7, 22, 45, 0.04)"
             }}>
-              {/* Left: Status & ID */}
+              {/* Left: Direct Microphone & Demo Voice Toggles */}
               <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                <span style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  background: peerCount > 1 ? "#ecfdf5" : "#edf7fb",
-                  color: peerCount > 1 ? "#065f46" : "#0369a1",
-                  fontSize: "12px",
-                  fontWeight: "800",
-                  padding: "5px 10px",
-                  borderRadius: "12px",
-                  border: `1px solid ${peerCount > 1 ? "#a7f3d0" : "#bae6fd"}`
-                }}>
-                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: peerCount > 1 ? "#10b981" : "#0284c7" }}></span>
-                  {peerCount > 1 ? `🟢 ACTIVE CALL (${peerCount} USERS IN CALL)` : "STANDALONE QC SESSION"}
-                </span>
+                <button
+                  type="button"
+                  onClick={micEnabled ? toggleMicrophone : requestMicrophone}
+                  style={{
+                    background: micEnabled ? "#07162d" : "#0284c7",
+                    color: "#ffffff",
+                    border: "none",
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  <span>{micEnabled ? "🔇 Mute Microphone" : "🎙️ Enable Microphone"}</span>
+                </button>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#07162d", color: "#ffffff", padding: "5px 12px", borderRadius: "8px", fontSize: "12px" }}>
-                  <span style={{ color: "#94a3b8" }}>Room:</span>
-                  <strong>{meetingId}</strong>
-                  <button
-                    type="button"
-                    onClick={copyMeetingId}
-                    style={{ background: "transparent", border: "none", color: "#38bdf8", cursor: "pointer", fontSize: "11px", fontWeight: "700", marginLeft: "4px" }}
-                  >
-                    {copied ? "✓ Copied" : "Copy Code"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={copyInviteLink}
-                    style={{ background: "#0369a1", border: "none", color: "#ffffff", cursor: "pointer", fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "4px", marginLeft: "4px" }}
-                  >
-                    {copiedLink ? "✓ Link Copied!" : "🔗 Share Link"}
-                  </button>
-                </div>
-              </div>
+                <button
+                  type="button"
+                  onClick={toggleTestTone}
+                  style={{
+                    background: isTestTonePlaying ? "#ef4444" : "#edf7fb",
+                    color: isTestTonePlaying ? "#ffffff" : "#0369a1",
+                    border: `1px solid ${isTestTonePlaying ? "#ef4444" : "#bae6fd"}`,
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    cursor: "pointer"
+                  }}
+                >
+                  {isTestTonePlaying ? "⏹ Stop Demo Voice" : "▶ Play Demo Voice"}
+                </button>
 
-              {/* Middle: Live Mic & Voice Status & VU Bar */}
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                {/* Live VU / Status meter */}
                 <div style={{
                   display: "flex",
                   alignItems: "center",
@@ -1278,101 +1336,85 @@ function LiveCommunication() {
                   padding: "5px 12px",
                   borderRadius: "8px"
                 }}>
-                  <span style={{ fontSize: "15px" }}>{micEnabled ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
+                  <span style={{ fontSize: "14px" }}>{audioInputActive ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <span style={{ fontSize: "11px", fontWeight: "800", color: "#07162d" }}>
-                        {micEnabled ? (isVoiceActive ? "Voice Active" : "Mic Open (Quiet)") : "Muted"}
+                        {isTestTonePlaying ? "Demo Voice Playing" : micEnabled ? (isVoiceActive ? "Voice Active" : "Mic Open (Quiet)") : "Mic Idle"}
                       </span>
                       <span style={{ fontSize: "10px", color: isVoiceActive ? "#10b981" : "#64748b", fontWeight: "700" }}>
                         {liveDb} dBFS
                       </span>
                     </div>
-
-                    {/* Animated Volume Meter */}
-                    <div style={{ width: "90px", height: "4px", background: "#cbd5e1", borderRadius: "2px", overflow: "hidden", marginTop: "2px" }}>
-                      <div style={{
-                        width: `${volumePercent}%`,
-                        height: "100%",
-                        background: volumePercent > 80 ? "#ef4444" : "#10b981",
-                        transition: "width 0.08s ease"
-                      }}></div>
-                    </div>
+                    {audioInputActive && (
+                      <div style={{ width: "80px", height: "4px", background: "#cbd5e1", borderRadius: "2px", overflow: "hidden", marginTop: "2px" }}>
+                        <div style={{
+                          width: `${volumePercent}%`,
+                          height: "100%",
+                          background: volumePercent > 80 ? "#ef4444" : "#10b981",
+                          transition: "width 0.08s ease"
+                        }}></div>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                {/* Remote Participant Status */}
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  background: peerCount > 1 ? "#ecfdf5" : "#f8fafc",
-                  border: `1px solid ${peerCount > 1 ? "#a7f3d0" : "#e2e8f0"}`,
-                  padding: "5px 12px",
-                  borderRadius: "8px",
-                  fontSize: "11px",
-                  color: peerCount > 1 ? "#065f46" : "#64748b",
-                  fontWeight: "700"
-                }}>
-                  <span>{peerCount > 1 ? "🟢" : "⏳"}</span>
-                  <span>{peerCount > 1 ? `Peer Connected (${peerCount} in room)` : "Waiting for 2nd participant"}</span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={toggleTestTone}
-                  style={{
-                    background: isTestTonePlaying ? "#ef4444" : "#edf7fb",
-                    color: isTestTonePlaying ? "#ffffff" : "#0369a1",
-                    border: `1px solid ${isTestTonePlaying ? "#ef4444" : "#bae6fd"}`,
-                    padding: "6px 12px",
-                    borderRadius: "6px",
-                    fontSize: "11px",
-                    fontWeight: "700",
-                    cursor: "pointer"
-                  }}
-                >
-                  {isTestTonePlaying ? "⏹ Stop Demo Voice" : "▶ Play Demo Voice"}
-                </button>
               </div>
 
-              {/* Right: Controls */}
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {/* Right: WebRTC Meeting Room Connect */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                 <button
                   type="button"
-                  onClick={toggleMicrophone}
+                  onClick={createMeeting}
                   style={{
-                    background: micEnabled ? "#07162d" : "#ef4444",
+                    background: "#0f766e",
                     color: "#ffffff",
                     border: "none",
-                    padding: "7px 14px",
-                    borderRadius: "6px",
+                    padding: "8px 15px",
+                    borderRadius: "8px",
                     fontSize: "12px",
                     fontWeight: "700",
                     cursor: "pointer"
                   }}
                 >
-                  {micEnabled ? "Mute Mic" : "Unmute Mic"}
+                  + Create Call Room
                 </button>
 
-                <button
-                  type="button"
-                  onClick={leaveMeeting}
-                  style={{
-                    background: "#fee2e2",
-                    color: "#b91c1c",
-                    border: "1px solid #fecaca",
-                    padding: "7px 14px",
-                    borderRadius: "6px",
-                    fontSize: "12px",
-                    fontWeight: "700",
-                    cursor: "pointer"
-                  }}
-                >
-                  Leave Call
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <input
+                    type="text"
+                    value={inputMeetingId}
+                    onChange={(e) => setInputMeetingId(e.target.value)}
+                    placeholder="Enter Room ID"
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: "6px",
+                      border: "1px solid #cbd5e1",
+                      fontSize: "12px",
+                      width: "120px",
+                      textTransform: "uppercase"
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => joinMeeting()}
+                    style={{
+                      background: "#07162d",
+                      color: "#ffffff",
+                      border: "none",
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: "700",
+                      cursor: "pointer"
+                    }}
+                  >
+                    Join
+                  </button>
+                </div>
               </div>
             </section>
+          </div>
+        )}
 
             {/* =================================================
                 MAIN QUALITY REPORT DASHBOARD (SLIDE 10)
@@ -1418,8 +1460,8 @@ function LiveCommunication() {
                   boxShadow: "0 4px 12px rgba(7, 22, 45, 0.08)"
                 }}>
                   <div>
-                    <span style={{ fontSize: "11px", fontWeight: "800", letterSpacing: "1.2px", color: qcMetrics.isSilent ? "#94a3b8" : "#7dd3fc" }}>
-                      {qcMetrics.isSilent ? "SPEECH QUALITY (AWAITING VOICE)" : "OVERALL SPEECH QUALITY"}
+                    <span style={{ fontSize: "11px", fontWeight: "800", letterSpacing: "1.2px", color: qcMetrics.isSilent && qcMetrics.mosDisplay === "—" ? "#94a3b8" : "#7dd3fc" }}>
+                      {qcMetrics.mosDisplay !== "—" ? (qcMetrics.isSilent ? "SPEECH QUALITY (HOLDING SCORE)" : "OVERALL SPEECH QUALITY") : "SPEECH QUALITY (AWAITING VOICE)"}
                     </span>
                     <div style={{ display: "flex", alignItems: "baseline", gap: "8px", margin: "8px 0 4px" }}>
                       <span style={{ fontSize: "44px", fontWeight: "900", lineHeight: 1, color: qcMetrics.isSilent && qcMetrics.mosDisplay === "—" ? "#64748b" : "#ffffff" }}>
@@ -1679,8 +1721,6 @@ function LiveCommunication() {
               </div>
 
             </section>
-          </div>
-        )}
 
         {/* PRIVACY GUARANTEE FOOTER */}
         <section className="privacy-box" style={{ marginTop: "18px", padding: "14px 18px" }}>

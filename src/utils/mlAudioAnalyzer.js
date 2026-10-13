@@ -85,63 +85,30 @@ class MLAudioAnalyzer {
 
   /**
    * Pushes continuous PCM samples from Web Audio (e.g. 44.1k or 48k)
-   * and downsamples to 16,000 Hz. Accumulates active speech frames into
-   * the rolling analysis buffer, ensuring natural pauses between words
-   * do not contaminate the neural network's quality window.
+   * and resamples down to 16,000 Hz into the rolling window buffer.
    */
   pushAudio(rawPcm, inputSampleRate = 48000) {
     if (!rawPcm || rawPcm.length === 0) return;
 
-    // Downsample incoming PCM to 16 kHz
-    let resampled;
     if (inputSampleRate === this.targetSampleRate) {
-      resampled = rawPcm;
+      for (let i = 0; i < rawPcm.length; i++) {
+        this.audioBuffer[this.bufferIndex] = rawPcm[i];
+        this.bufferIndex = (this.bufferIndex + 1) % this.windowSize;
+      }
+      this.samplesAccumulated = Math.min(this.windowSize, this.samplesAccumulated + rawPcm.length);
     } else {
       const ratio = inputSampleRate / this.targetSampleRate;
       const targetLen = Math.floor(rawPcm.length / ratio);
-      resampled = new Float32Array(targetLen);
 
       for (let i = 0; i < targetLen; i++) {
         const srcPos = i * ratio;
         const index0 = Math.floor(srcPos);
         const index1 = Math.min(rawPcm.length - 1, index0 + 1);
         const weight = srcPos - index0;
-        resampled[i] = rawPcm[index0] * (1.0 - weight) + rawPcm[index1] * weight;
+        this.audioBuffer[this.bufferIndex] = rawPcm[index0] * (1.0 - weight) + rawPcm[index1] * weight;
+        this.bufferIndex = (this.bufferIndex + 1) % this.windowSize;
       }
-    }
-
-    // Process in 50ms sub-frames (800 samples at 16 kHz)
-    const FRAME_SIZE = 800;
-    for (let i = 0; i < resampled.length; i++) {
-      this.pendingFrame[this.pendingFrameIdx++] = resampled[i];
-      if (this.pendingFrameIdx >= FRAME_SIZE) {
-        let sumSq = 0;
-        let peak = 0;
-        for (let j = 0; j < FRAME_SIZE; j++) {
-          const s = this.pendingFrame[j];
-          const abs = Math.abs(s);
-          if (abs > peak) peak = abs;
-          sumSq += s * s;
-        }
-        const rms = Math.sqrt(sumSq / FRAME_SIZE);
-
-        // Update running peak of human speech to adapt dynamically across microphones
-        this.dynamicPeak = Math.max(0.04, 0.95 * this.dynamicPeak + 0.05 * peak);
-        const thresh = Math.max(0.010, this.dynamicPeak * 0.12);
-
-        // If active vocalization, record frame into rolling quality buffer
-        if (rms >= thresh || peak >= thresh * 2) {
-          for (let j = 0; j < FRAME_SIZE; j++) {
-            this.audioBuffer[this.bufferIndex] = this.pendingFrame[j];
-            this.bufferIndex = (this.bufferIndex + 1) % this.windowSize;
-          }
-          this.samplesAccumulated = Math.min(
-            this.windowSize,
-            this.samplesAccumulated + FRAME_SIZE
-          );
-        }
-        this.pendingFrameIdx = 0;
-      }
+      this.samplesAccumulated = Math.min(this.windowSize, this.samplesAccumulated + targetLen);
     }
   }
 
@@ -149,27 +116,25 @@ class MLAudioAnalyzer {
     this.audioBuffer.fill(0);
     this.bufferIndex = 0;
     this.samplesAccumulated = 0;
-    this.pendingFrame.fill(0);
+    if (this.pendingFrame) this.pendingFrame.fill(0);
     this.pendingFrameIdx = 0;
     this.dynamicPeak = 0.1;
   }
 
   /**
-   * Extracts linear ordered 1.0 second (16,000 samples) window from the active buffer.
+   * Extracts linear ordered 1.0 second (16,000 samples) window from the ring buffer.
    */
   getOrderedWindow() {
     const window = new Float32Array(this.windowSize);
     if (this.samplesAccumulated === 0) return window;
 
     if (this.samplesAccumulated < this.windowSize) {
-      // Loop/tile the accumulated active speech so it seamlessly fills 1.0 second
       for (let i = 0; i < this.windowSize; i++) {
         window[i] = this.audioBuffer[i % this.samplesAccumulated];
       }
       return window;
     }
 
-    // Unroll circular buffer so oldest sample is at index 0
     const tailLength = this.windowSize - this.bufferIndex;
     window.set(this.audioBuffer.subarray(this.bufferIndex, this.windowSize), 0);
     window.set(this.audioBuffer.subarray(0, this.bufferIndex), tailLength);
@@ -178,16 +143,21 @@ class MLAudioAnalyzer {
 
   /**
    * Runs neural inference on current 16,000 sample window.
-   * Returns: { mos, snr, dropoutProb, clipProb, latencyMs, engine }
+   * Dynamically filters out inter-word dead silence pauses so natural pauses
+   * do not falsely trigger packet dropout penalties.
    */
   async predict() {
     if (!this.isReady || !this.session) {
       return this.lastResult;
     }
 
+    // Require at least ~250ms of audio before first inference
+    if (this.samplesAccumulated < 4000) {
+      return { ...this.lastResult, isSilent: true };
+    }
+
     const window = this.getOrderedWindow();
 
-    // Check peak amplitude for silence
     let peak = 0;
     let sumSq = 0;
     for (let i = 0; i < window.length; i++) {
@@ -197,14 +167,12 @@ class MLAudioAnalyzer {
     }
     const rms = Math.sqrt(sumSq / window.length);
 
-    // Silence is not a quality sample. Keep the last model result internally, but
-    // tell the UI to hide it until a fresh speech window has been analyzed.
-    if (this.samplesAccumulated < 800 || rms < 0.005 || peak < 0.02) {
+    // True silence / dead input
+    if (peak < 0.008 || rms < 0.001) {
       this.lastResult = {
         ...this.lastResult,
         isSilent: true,
         latencyMs: 0.1,
-        engine: "neural_ml",
       };
       return this.lastResult;
     }
@@ -212,20 +180,59 @@ class MLAudioAnalyzer {
     try {
       const t0 = performance.now();
 
-      // Dynamic Active Speech Level Normalization:
-      // Browser microphones capture speech at low digital gain (RMS ~0.015 - 0.045, peak ~0.08 - 0.20)
-      // to prevent hardware clipping. The neural network was calibrated on reference speech levels (peak ~0.88).
-      // Scaling active speech peak to targetPeak (0.88) ensures clean formants are recognized at 4.0+ MOS!
+      // Divide 1.0s window into 20 sub-slices of 50ms (800 samples)
+      // Extract active speech slices to prevent natural pauses between words from triggering dropouts
+      const sliceLen = 800;
+      const sliceRms = [];
+      let maxSliceRms = 0;
+      for (let i = 0; i < this.windowSize; i += sliceLen) {
+        let bSum = 0;
+        for (let j = 0; j < sliceLen; j++) {
+          const s = window[i + j];
+          bSum += s * s;
+        }
+        const bRms = Math.sqrt(bSum / sliceLen);
+        sliceRms.push(bRms);
+        if (bRms > maxSliceRms) maxSliceRms = bRms;
+      }
+
+      // Collect active slices (energy >= 15% of peak slice energy)
+      const activeBlocks = [];
+      for (let idx = 0; idx < sliceRms.length; idx++) {
+        if (sliceRms[idx] >= Math.max(0.003, maxSliceRms * 0.15)) {
+          activeBlocks.push(window.subarray(idx * sliceLen, (idx + 1) * sliceLen));
+        }
+      }
+
+      let evalWindow;
+      if (activeBlocks.length >= 2) {
+        evalWindow = new Float32Array(this.windowSize);
+        const catLen = activeBlocks.length * sliceLen;
+        for (let i = 0; i < this.windowSize; i++) {
+          const bIdx = Math.floor((i % catLen) / sliceLen);
+          const sIdx = (i % catLen) % sliceLen;
+          evalWindow[i] = activeBlocks[bIdx][sIdx];
+        }
+      } else {
+        evalWindow = window;
+      }
+
+      let evalPeak = 0;
+      for (let i = 0; i < evalWindow.length; i++) {
+        const absVal = Math.abs(evalWindow[i]);
+        if (absVal > evalPeak) evalPeak = absVal;
+      }
+
+      // Dynamic Active Speech Level Normalization (target reference 0.88 peak)
       const normalizedWindow = new Float32Array(this.windowSize);
       const targetPeak = 0.88;
-      const scaleFactor = Math.min(30.0, targetPeak / Math.max(peak, 0.01));
+      const scaleFactor = Math.min(35.0, targetPeak / Math.max(evalPeak, 0.01));
       for (let i = 0; i < this.windowSize; i++) {
-        normalizedWindow[i] = window[i] * scaleFactor;
+        normalizedWindow[i] = evalWindow[i] * scaleFactor;
       }
 
       // Prepare ONNX Tensor: shape [1, 1, 16000]
       const tensor = new ort.Tensor("float32", normalizedWindow, [1, 1, this.windowSize]);
-
       const feeds = { input_audio: tensor };
       const output = await this.session.run(feeds);
       const latency = performance.now() - t0;
@@ -242,8 +249,8 @@ class MLAudioAnalyzer {
       const clampedDropout = Math.max(0.0, Math.min(1.0, parseFloat(rawDropout.toFixed(3))));
       const clampedClip = Math.max(0.0, Math.min(1.0, parseFloat(rawClip.toFixed(3))));
 
-      // Exponential smoothing to prevent jitter (fast response on first speech prediction)
-      const alpha = 0.50; // responsiveness weight
+      // Exponential smoothing to prevent jitter
+      const alpha = this.lastResult.hasPrediction ? 0.35 : 1.0;
       const smoothedMos = (this.lastResult.hasPrediction && Number.isFinite(this.lastResult.mos))
         ? parseFloat((alpha * clampedMos + (1 - alpha) * this.lastResult.mos).toFixed(2))
         : clampedMos;
@@ -257,6 +264,7 @@ class MLAudioAnalyzer {
         engine: "neural_ml",
         isReady: true,
         hasPrediction: true,
+        isSilent: false,
       };
 
       return this.lastResult;
