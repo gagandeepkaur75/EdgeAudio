@@ -60,11 +60,12 @@ export default function DeliverablePage() {
   if ((!data && isPlanningV1) || (data && isPlanningV1 && viewMode === "interactive")) {
     return (
       <div style={{ position: "relative" }}>
+        <PageNav />
         {/* Toggle Bar at top of screen for planning-v1 */}
         <div style={{
           position: "sticky",
-          top: 0,
-          zIndex: 1000,
+          top: "76px",
+          zIndex: 999,
           background: "#07152b",
           color: "white",
           padding: "0.5rem 1rem",

@@ -423,9 +423,13 @@ function App() {
         <Route path="/timeline" element={<Timeline />} />
         <Route path="/architecture" element={<Architecture />} />
         <Route path="/live-communication" element={<LiveCommunication />} />
+        <Route path="/live" element={<LiveCommunication />} />
+        <Route path="/live-test" element={<LiveCommunication />} />
+        <Route path="/planning" element={<DeliverablePage />} />
+        <Route path="/planning-v1" element={<DeliverablePage />} />
+        <Route path="/planning-v2" element={<PlanningV2 />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/deliverables" element={<DeliverablesHistoryPage />} />
-        <Route path="/live-test" element={<LiveTest />} />
         <Route path="/:slug" element={<DeliverablePage />} />
       </Routes>
     </BrowserRouter>

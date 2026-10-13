@@ -90,9 +90,10 @@ function LiveCommunication() {
 
   // Demo Voices & PC Audio Capture State
   const DEMO_VOICE_OPTIONS = [
-    { id: "male", name: "Studio Male Voice", url: "/audio/demo_male.wav" },
-    { id: "female", name: "Studio Female Voice", url: "/audio/demo_female.wav" },
-    { id: "conversational", name: "Conversational Dialogue", url: "/audio/demo_conversational.wav" },
+    { id: "male", label: "Voice 1: Male (Studio)", url: "/audio/demo_male.wav" },
+    { id: "female", label: "Voice 2: Female (Studio)", url: "/audio/demo_female.wav" },
+    { id: "conversational", label: "Voice 3: Conversational Dialogue", url: "/audio/demo_conversational.wav" },
+    { id: "custom", label: "Voice 4: Upload Audio File (.wav/.mp3)...", url: null },
   ];
   const [selectedDemoVoice, setSelectedDemoVoice] = useState("male");
   const [customAudioName, setCustomAudioName] = useState("");
@@ -299,7 +300,7 @@ function LiveCommunication() {
 
         // Push continuous, gapless PCM into ML active speech buffer
         if (micEnabledRef.current || isTestTonePlayingRef.current) {
-          mlAudioAnalyzer.pushAudio(output, sampleRate);
+          mlAudioAnalyzer.pushAudio(output, sampleRate, isVoiceActiveRef.current);
         }
       };
 
@@ -462,8 +463,10 @@ function LiveCommunication() {
             isVoiceActiveRef.current = voiceActive;
           }
 
-          // Periodic ML inference runs on the continuous active speech buffer
-          if (voiceActive && now - lastMlTimeRef.current > 400) {
+          // Periodic ML inference: only evaluates when speech is genuinely active
+          // Freezes during natural breath and sentence pauses so the high evaluated score does not drop
+          const isSpeakingNow = isTestTonePlayingRef.current || isSpeakingInstant || (now - lastSpeechTimeRef.current < 250);
+          if (isSpeakingNow && now - lastMlTimeRef.current > 350) {
             lastMlTimeRef.current = now;
             mlAudioAnalyzer.predict().then((res) => {
               if (res && res.isReady && !res.isSilent) {

@@ -15,13 +15,20 @@ class MLAudioAnalyzer {
     this.isReady = false;
     this.modelPath = "/models/edgeaudio_model_int8.onnx";
     this.targetSampleRate = 16000;
-    this.windowDuration = 1.0; // 1 second window
+    this.windowDuration = 1.0; // 1 second model input window
     this.windowSize = this.targetSampleRate * this.windowDuration; // 16,000 samples
 
     // Rolling circular audio buffer at 16 kHz
     this.audioBuffer = new Float32Array(this.windowSize);
     this.bufferIndex = 0;
     this.samplesAccumulated = 0;
+
+    // 3.0-second active speech accumulator to bridge natural pauses between sentences
+    this.speechWindowSize = 48000;
+    this.speechBuffer = new Float32Array(this.speechWindowSize);
+    this.speechBufferIndex = 0;
+    this.speechBufferCount = 0;
+
     this.pendingFrame = new Float32Array(800); // 50ms sub-frame at 16 kHz
     this.pendingFrameIdx = 0;
     this.dynamicPeak = 0.1;
@@ -87,28 +94,49 @@ class MLAudioAnalyzer {
    * Pushes continuous PCM samples from Web Audio (e.g. 44.1k or 48k)
    * and resamples down to 16,000 Hz into the rolling window buffer.
    */
-  pushAudio(rawPcm, inputSampleRate = 48000) {
+  /**
+   * Pushes continuous PCM samples from Web Audio (e.g. 44.1k or 48k)
+   * and resamples down to 16,000 Hz into the rolling window buffer.
+   * Gated active speech accumulation bridges natural pauses between sentences.
+   */
+  pushAudio(rawPcm, inputSampleRate = 48000, isSpeechActive = true) {
     if (!rawPcm || rawPcm.length === 0) return;
 
-    if (inputSampleRate === this.targetSampleRate) {
-      for (let i = 0; i < rawPcm.length; i++) {
-        this.audioBuffer[this.bufferIndex] = rawPcm[i];
-        this.bufferIndex = (this.bufferIndex + 1) % this.windowSize;
-      }
-      this.samplesAccumulated = Math.min(this.windowSize, this.samplesAccumulated + rawPcm.length);
-    } else {
-      const ratio = inputSampleRate / this.targetSampleRate;
-      const targetLen = Math.floor(rawPcm.length / ratio);
+    const ratio = inputSampleRate / this.targetSampleRate;
+    const targetLen = inputSampleRate === this.targetSampleRate ? rawPcm.length : Math.floor(rawPcm.length / ratio);
+    const resampled = new Float32Array(targetLen);
 
+    if (inputSampleRate === this.targetSampleRate) {
+      resampled.set(rawPcm);
+    } else {
       for (let i = 0; i < targetLen; i++) {
         const srcPos = i * ratio;
         const index0 = Math.floor(srcPos);
         const index1 = Math.min(rawPcm.length - 1, index0 + 1);
         const weight = srcPos - index0;
-        this.audioBuffer[this.bufferIndex] = rawPcm[index0] * (1.0 - weight) + rawPcm[index1] * weight;
-        this.bufferIndex = (this.bufferIndex + 1) % this.windowSize;
+        resampled[i] = rawPcm[index0] * (1.0 - weight) + rawPcm[index1] * weight;
       }
-      this.samplesAccumulated = Math.min(this.windowSize, this.samplesAccumulated + targetLen);
+    }
+
+    // 1. Regular 1.0s circular buffer
+    for (let i = 0; i < targetLen; i++) {
+      this.audioBuffer[this.bufferIndex] = resampled[i];
+      this.bufferIndex = (this.bufferIndex + 1) % this.windowSize;
+    }
+    this.samplesAccumulated = Math.min(this.windowSize, this.samplesAccumulated + targetLen);
+
+    // 2. 3.0s Active Speech Accumulator
+    // Only writes frames containing vocal energy, preventing dead pause gaps between sentences
+    let chunkSum = 0;
+    for (let i = 0; i < targetLen; i++) chunkSum += resampled[i] * resampled[i];
+    const chunkRms = Math.sqrt(chunkSum / targetLen);
+
+    if (isSpeechActive || chunkRms > 0.004) {
+      for (let i = 0; i < targetLen; i++) {
+        this.speechBuffer[this.speechBufferIndex] = resampled[i];
+        this.speechBufferIndex = (this.speechBufferIndex + 1) % this.speechWindowSize;
+      }
+      this.speechBufferCount = Math.min(this.speechWindowSize, this.speechBufferCount + targetLen);
     }
   }
 
@@ -116,6 +144,9 @@ class MLAudioAnalyzer {
     this.audioBuffer.fill(0);
     this.bufferIndex = 0;
     this.samplesAccumulated = 0;
+    this.speechBuffer.fill(0);
+    this.speechBufferIndex = 0;
+    this.speechBufferCount = 0;
     if (this.pendingFrame) this.pendingFrame.fill(0);
     this.pendingFrameIdx = 0;
     this.dynamicPeak = 0.1;
@@ -123,9 +154,23 @@ class MLAudioAnalyzer {
 
   /**
    * Extracts linear ordered 1.0 second (16,000 samples) window from the ring buffer.
+   * Prefers active continuous speech if available to bridge inter-sentence pauses.
    */
   getOrderedWindow() {
     const window = new Float32Array(this.windowSize);
+
+    // If we have at least 1.0s of continuous active speech accumulated, use that!
+    if (this.speechBufferCount >= this.windowSize) {
+      if (this.speechBufferIndex >= this.windowSize) {
+        window.set(this.speechBuffer.subarray(this.speechBufferIndex - this.windowSize, this.speechBufferIndex), 0);
+      } else {
+        const wrapLen = this.windowSize - this.speechBufferIndex;
+        window.set(this.speechBuffer.subarray(this.speechWindowSize - wrapLen, this.speechWindowSize), 0);
+        window.set(this.speechBuffer.subarray(0, this.speechBufferIndex), wrapLen);
+      }
+      return window;
+    }
+
     if (this.samplesAccumulated === 0) return window;
 
     if (this.samplesAccumulated < this.windowSize) {
@@ -152,7 +197,7 @@ class MLAudioAnalyzer {
     }
 
     // Require at least ~250ms of audio before first inference
-    if (this.samplesAccumulated < 4000) {
+    if (this.samplesAccumulated < 4000 && this.speechBufferCount < 4000) {
       return { ...this.lastResult, isSilent: true };
     }
 
@@ -211,6 +256,15 @@ class MLAudioAnalyzer {
         if (sliceRms[idx] >= vocalThreshold) {
           activeBlocks.push(window.subarray(idx * sliceLen, (idx + 1) * sliceLen));
         }
+      }
+
+      // If fewer than 3 slices (150ms) are active, this is a pause / silence, not speech!
+      if (activeBlocks.length < 3) {
+        return {
+          ...this.lastResult,
+          isSilent: true,
+          latencyMs: 0.1,
+        };
       }
 
       let evalWindow;
