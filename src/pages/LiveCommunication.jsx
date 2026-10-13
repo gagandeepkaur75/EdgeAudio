@@ -20,6 +20,7 @@ function LiveCommunication() {
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isTestTonePlaying, setIsTestTonePlaying] = useState(false);
+  const isTestTonePlayingRef = useRef(false);
 
   // On-device ML engine state
   const [mlState, setMlState] = useState({
@@ -59,6 +60,7 @@ function LiveCommunication() {
   const packetLossCursorRef = useRef(0);
   const speechEnergyHistoryRef = useRef([]);
   const noiseFloorRef = useRef(0.003);
+  const wasVoiceActiveRef = useRef(false);
 
   // Rolling Quality History Trend
   const [qualityTrend, setQualityTrend] = useState([]);
@@ -306,16 +308,47 @@ function LiveCommunication() {
           const historyVariance = energyHistory.reduce((sumValue, value) => sumValue + (value - historyMean) ** 2, 0) / energyHistory.length;
           const energyVariation = Math.sqrt(historyVariance) / Math.max(historyMean, 1e-5);
           const estimatedNoiseFloor = noiseFloorRef.current;
-          const speechLevel = rms > Math.max(0.008, estimatedNoiseFloor * 1.8);
-          const speechLikeSpectrum = speechBandRatio > 0.65 && (spectralFlatness < 0.48 || peakToAverage > 12);
-          const speechDynamics = energyVariation > 0.1 || spectralChange > 0.35;
-          const isSpeakingInstant = isTestTonePlaying || (energyHistory.length >= 12 && speechLevel && speechLikeSpectrum && speechDynamics);
+          // Estimate voiced periodicity. Broadband noise and steady hum can have
+          // speech-band energy and changing levels, but usually lack a stable pitch.
+          const decimation = 4;
+          const downsampled = [];
+          for (let i = 0; i < timeBuffer.length; i += decimation) downsampled.push(timeBuffer[i]);
+          const minLag = Math.max(2, Math.floor(audioCtx.sampleRate / decimation / 320));
+          const maxLag = Math.min(downsampled.length - 2, Math.ceil(audioCtx.sampleRate / decimation / 80));
+          let pitchCorrelation = 0;
+          for (let lag = minLag; lag <= maxLag; lag++) {
+            let cross = 0;
+            let leftEnergy = 0;
+            let rightEnergy = 0;
+            for (let i = 0; i < downsampled.length - lag; i += 2) {
+              const left = downsampled[i];
+              const right = downsampled[i + lag];
+              cross += left * right;
+              leftEnergy += left * left;
+              rightEnergy += right * right;
+            }
+            const correlation = cross / Math.sqrt(Math.max(leftEnergy * rightEnergy, 1e-20));
+            pitchCorrelation = Math.max(pitchCorrelation, correlation);
+          }
+          const speechLevel = rms > Math.max(0.012, estimatedNoiseFloor * 2.2);
+          const speechLikeSpectrum = speechBandRatio > 0.68 && spectralFlatness < 0.62;
+          const speechDynamics = energyVariation > 0.06 || spectralChange > 0.24;
+          const voicedSound = pitchCorrelation > 0.38;
+          const isSpeakingInstant = isTestTonePlayingRef.current || (energyHistory.length >= 12 && speechLevel && speechLikeSpectrum && speechDynamics && voicedSound);
 
           if (!isSpeakingInstant) {
             noiseFloorRef.current = Math.max(0.001, estimatedNoiseFloor * 0.97 + Math.min(rms, estimatedNoiseFloor * 2.5) * 0.03);
           }
           if (isSpeakingInstant) lastSpeechTimeRef.current = now;
-          const voiceActive = isTestTonePlaying || (now - lastSpeechTimeRef.current < 500);
+          const voiceActive = isTestTonePlayingRef.current || (now - lastSpeechTimeRef.current < 500);
+          if (voiceActive && !wasVoiceActiveRef.current) {
+            mlAudioAnalyzer.resetBuffer();
+            setMlState((prev) => ({ ...prev, mos: null, hasPrediction: false }));
+          } else if (!voiceActive && wasVoiceActiveRef.current) {
+            mlAudioAnalyzer.resetBuffer();
+            setMlState((prev) => ({ ...prev, mos: null, hasPrediction: false }));
+          }
+          wasVoiceActiveRef.current = voiceActive;
 
           // 2. Throttled State Update (10Hz) to prevent React state thrashing
           if (now - lastStateTime > 100) {
@@ -330,7 +363,7 @@ function LiveCommunication() {
           const elapsedSamples = Math.max(0, Math.round((sampleTime - lastAudioSampleTime) * audioCtx.sampleRate / 1000));
           lastAudioSampleTime = sampleTime;
           const newSampleCount = Math.min(timeBuffer.length, elapsedSamples);
-          if (newSampleCount > 0) {
+          if (newSampleCount > 0 && voiceActive) {
             const modelPcm = new Float32Array(newSampleCount);
             const firstSample = timeBuffer.length - newSampleCount;
             const activeSimulations = simulationsRef.current;
@@ -348,7 +381,7 @@ function LiveCommunication() {
           }
 
           // Periodic ML inference runs on the transformed PCM stream.
-          if (now - lastMlTimeRef.current > 450) {
+          if (voiceActive && now - lastMlTimeRef.current > 450) {
             lastMlTimeRef.current = now;
             mlAudioAnalyzer.predict().then((res) => {
               if (res && res.isReady && !res.isSilent && voiceActive) {
@@ -368,7 +401,7 @@ function LiveCommunication() {
           // 4. Update 10s Rolling History Trend (1s interval)
           if (now - lastTrendTime > 1000) {
             lastTrendTime = now;
-            if ((voiceActive || isTestTonePlaying) && currentMosRef.current !== null) {
+            if (voiceActive && currentMosRef.current !== null) {
               const liveScore = currentMosRef.current;
               setQualityTrend((prev) => {
                 return prev.length < 10 ? [...prev, liveScore] : [...prev.slice(1), liveScore];
@@ -435,6 +468,7 @@ function LiveCommunication() {
       if (oscTimerRef.current) clearInterval(oscTimerRef.current);
       oscTimerRef.current = null;
       setIsTestTonePlaying(false);
+      isTestTonePlayingRef.current = false;
       setIsVoiceActive(false);
       lastSpeechTimeRef.current = 0;
       return;
@@ -457,7 +491,7 @@ function LiveCommunication() {
       oscillator.connect(gain);
       gain.connect(filterNodeRef.current || analyser);
       const monitorGain = audioCtx.createGain();
-      monitorGain.gain.value = 0.025;
+      monitorGain.gain.value = 0.35;
       gain.connect(monitorGain);
       monitorGain.connect(audioCtx.destination);
       oscillator.start();
@@ -475,6 +509,7 @@ function LiveCommunication() {
       }, 140);
 
       setIsTestTonePlaying(true);
+      isTestTonePlayingRef.current = true;
       setIsVoiceActive(true);
       lastSpeechTimeRef.current = Date.now();
       setErrorMessage("");
@@ -770,6 +805,7 @@ function LiveCommunication() {
     setMeetingId("");
     setMicEnabled(false);
     setIsTestTonePlaying(false);
+    isTestTonePlayingRef.current = false;
     setQualityTrend([]);
     lastSpeechTimeRef.current = 0;
     speechEnergyHistoryRef.current = [];

@@ -122,6 +122,12 @@ class MLAudioAnalyzer {
     }
   }
 
+  resetBuffer() {
+    this.audioBuffer.fill(0);
+    this.bufferIndex = 0;
+    this.samplesAccumulated = 0;
+  }
+
   /**
    * Extracts linear ordered 1.0 second (16,000 samples) window from the ring buffer.
    */
@@ -163,7 +169,8 @@ class MLAudioAnalyzer {
     }
     const rms = Math.sqrt(sumSq / window.length);
 
-    // If quiet ambient / silent (room noise RMS < 0.015 or peak amplitude < 0.05), flag silence and retain last valid speech score
+    // Silence is not a quality sample. Keep the last model result internally, but
+    // tell the UI to hide it until a fresh speech window has been analyzed.
     if (rms < 0.015 || peak < 0.05) {
       this.lastResult = {
         ...this.lastResult,
