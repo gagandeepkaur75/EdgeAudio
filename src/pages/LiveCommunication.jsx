@@ -1036,7 +1036,7 @@ function LiveCommunication() {
                     marginTop: "4px"
                   }}>
                     <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: mlState.isLoaded ? "#10b981" : "#0284c7" }}></span>
-                    <span>{mlState.isLoaded ? "EdgeAudioNet ML Ready (265 KB)" : "Loading Neural Engine..."}</span>
+                    <span>{mlState.isLoaded ? "EdgeAudioNet v2 ML Ready (401 KB)" : "Loading Neural Engine..."}</span>
                   </div>
 
                   {/* Real-time Bouncing VU Meter Bar */}
@@ -1298,7 +1298,7 @@ function LiveCommunication() {
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                   <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#ecfdf5", padding: "6px 12px", borderRadius: "14px", fontSize: "12px", fontWeight: "800", color: "#065f46", border: "1px solid #a7f3d0" }}>
                     <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: mlState.isLoaded ? "#10b981" : "#64748b", display: "inline-block" }}></span>
-                    {mlState.isLoaded ? `Neural ML Engine (EdgeAudioNet INT8 · ${qcMetrics.latencyMs}ms)` : mlState.isLoading ? "Loading on-device ML model…" : "On-device ML model unavailable"}
+                    {mlState.isLoaded ? `Neural ML Engine (EdgeAudioNet v2 INT8 · ${qcMetrics.latencyMs}ms)` : mlState.isLoading ? "Loading on-device ML model…" : "On-device ML model unavailable"}
                   </div>
                 </div>
               </div>
@@ -1349,7 +1349,7 @@ function LiveCommunication() {
                   {/* Engine Details Footer */}
                   <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: "8px" }}>
                     <div style={{ fontSize: "11px", fontWeight: "800", color: "#38bdf8" }}>
-                      {"EdgeAudioNet (1D Conv-GRU)"}
+                      {"EdgeAudioNet v2 (SE-Conv-GRU + Attention)"}
                     </div>
                     <div style={{ fontSize: "10px", color: "#94a3b8", display: "flex", justifyContent: "space-between", marginTop: "3px" }}>
                       <span>{qcMetrics.isSilent ? "VAD: Listening..." : `WASM: ${qcMetrics.latencyMs}ms`}</span>
