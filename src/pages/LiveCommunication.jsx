@@ -21,13 +21,14 @@ function LiveCommunication() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [isTestTonePlaying, setIsTestTonePlaying] = useState(false);
 
-  // ML Neural Engine & Dual-Mode State
-  const [engineMode, setEngineMode] = useState("neural"); // "neural" | "heuristic"
+  // On-device ML engine state
   const [mlState, setMlState] = useState({
     isLoaded: false,
-    latencyMs: 0.7,
-    mos: 4.5,
-    snr: 34.0,
+    isLoading: true,
+    hasPrediction: false,
+    latencyMs: 0,
+    mos: null,
+    snr: 0,
     dropoutProb: 0.0,
     clipProb: 0.0,
   });
@@ -57,7 +58,7 @@ function LiveCommunication() {
 
   // Rolling Quality History Trend
   const [qualityTrend, setQualityTrend] = useState([]);
-  const currentMosRef = useRef(4.5);
+  const currentMosRef = useRef(null);
   const lastSpokenMosRef = useRef(null);
   const hasSpokenRef = useRef(false);
   const lastSpeechTimeRef = useRef(0);
@@ -81,277 +82,98 @@ function LiveCommunication() {
   // Initialize ONNX WebAssembly Neural Engine on mount
   useEffect(() => {
     mlAudioAnalyzer.init().then((success) => {
-      if (success) {
-        setMlState((prev) => ({ ...prev, isLoaded: true }));
-      }
+      setMlState((prev) => ({ ...prev, isLoaded: success, isLoading: false }));
     });
   }, []);
 
   /* =====================================================
-     CALCULATE LIVE QC METRICS (DUAL MODE: NEURAL ML vs HEURISTIC DSP)
+     CALCULATE LIVE QC METRICS FROM ON-DEVICE ML PREDICTIONS ONLY
   ===================================================== */
   const qcMetrics = useMemo(() => {
-    const isActuallySpeaking = micEnabled && (isVoiceActive || isTestTonePlaying);
+    const isActuallySpeaking = (micEnabled || isTestTonePlaying) && (isVoiceActive || isTestTonePlaying);
+    const hasScore = mlState.hasPrediction && Number.isFinite(mlState.mos);
+    const calculatedMos = hasScore ? Math.max(1, Math.min(5, mlState.mos)) : null;
 
-    // ----------------------------------------------------
-    // MODE A: NEURAL ML ENGINE (EdgeAudioNet INT8 WASM)
-    // ----------------------------------------------------
-    if (engineMode === "neural" && mlState.isLoaded) {
-      let neuralMos = mlState.mos;
-      let totalPenalty = 0;
-
-      // Simulations modify the physical audio or apply compound offsets
-      if (simulations.noise) {
-        neuralMos -= 1.2;
-        totalPenalty += 1.2;
-      }
-      if (simulations.packetLoss) {
-        neuralMos -= 1.4;
-        totalPenalty += 1.4;
-      }
-      if (simulations.clipping) {
-        neuralMos -= 1.6;
-        totalPenalty += 1.6;
-      }
-      if (simulations.muffled) {
-        neuralMos -= 0.8;
-        totalPenalty += 0.8;
-      }
-
-      const calculatedMos = Math.max(1.0, Math.min(5.0, parseFloat(neuralMos.toFixed(1))));
-
-      if (isActuallySpeaking) {
-        hasSpokenRef.current = true;
-        lastSpokenMosRef.current = calculatedMos;
-      }
-
-      let ratingText = "EXCELLENT";
-      let ratingColor = "#10b981";
-      if (calculatedMos >= 4.0) {
-        ratingText = "GOOD";
-        ratingColor = "#0284c7";
-      } else if (calculatedMos >= 3.0) {
-        ratingText = "FAIR";
-        ratingColor = "#f59e0b";
-      } else {
-        ratingText = "POOR";
-        ratingColor = "#ef4444";
-      }
-
-      // Silence & VAD resolution
-      let displayScore = "—";
-      let displayRating = "LISTENING (AWAITING SPEECH)";
-      let displayColor = "#0284c7";
-      let statusNote = "Speak into microphone or click 'Play Demo Voice' to evaluate quality";
-      let isSilent = true;
-
-      if (!micEnabled && !isTestTonePlaying) {
-        displayScore = "—";
-        displayRating = "MIC MUTED";
-        displayColor = "#64748b";
-        statusNote = "Microphone muted • No speech audio stream";
-        isSilent = true;
-      } else if (isActuallySpeaking) {
-        displayScore = calculatedMos.toFixed(1);
-        displayRating = ratingText;
-        displayColor = ratingColor;
-        statusNote = "Active speech evaluated via on-device 1D Conv-GRU";
-        isSilent = false;
-      } else if (hasSpokenRef.current && lastSpokenMosRef.current !== null) {
-        displayScore = lastSpokenMosRef.current.toFixed(1);
-        displayRating = "PAUSED (LAST SPOKEN)";
-        displayColor = "#64748b";
-        statusNote = "User currently silent • Holding last evaluated voice score";
-        isSilent = true;
-      }
-
-      // Diagnostic heads from EdgeAudioNet multi-task predictions
-      let micText = isActuallySpeaking ? "Optimal (Clean Gain)" : `Quiet Ambient (${liveDb} dBFS)`;
-      let micColor = isActuallySpeaking ? "#10b981" : "#64748b";
-      if (mlState.clipProb > 0.35 || simulations.clipping || liveDb > -5) {
-        const satPct = Math.round(Math.max(mlState.clipProb, simulations.clipping ? 0.9 : 0.4) * 100);
-        micText = `Overload Detected (${satPct}% Saturation)`;
-        micColor = "#ef4444";
-      } else if (!micEnabled && !isTestTonePlaying) {
-        micText = "Microphone Muted";
-        micColor = "#64748b";
-      }
-
-      let netText = peerCount > 1 ? "P2P Connected (2-Way Call)" : "Stable (WASM Edge)";
-      let netColor = "#0284c7";
-      if (mlState.dropoutProb > 0.35 || simulations.packetLoss) {
-        const dropPct = Math.round(Math.max(mlState.dropoutProb, simulations.packetLoss ? 0.85 : 0.4) * 100);
-        netText = `Burst Drops (${dropPct}% Loss Prob)`;
-        netColor = "#ef4444";
-      }
-
-      const snrVal = Math.round(mlState.snr);
-      let noiseText = isActuallySpeaking ? `SNR ~ ${snrVal} dB (Neural)` : `Noise Floor (~${snrVal} dB)`;
-      let noiseColor = snrVal >= 25 ? "#10b981" : snrVal >= 12 ? "#f59e0b" : "#ef4444";
-      if (simulations.noise) {
-        noiseText = "High Noise (SNR < 10 dB)";
-        noiseColor = "#ef4444";
-      }
-
-      let clarityText = simulations.muffled
-        ? "Muffled (Narrowband Filter)"
-        : isActuallySpeaking
-        ? "Clear Formants (Neural GRU)"
-        : "Awaiting Voice (VAD Inactive)";
-      let clarityColor = simulations.muffled ? "#f59e0b" : isActuallySpeaking ? "#10b981" : "#64748b";
-
-      return {
-        mosScore: calculatedMos,
-        mosDisplay: displayScore,
-        isSilent,
-        ratingText: displayRating,
-        ratingColor: displayColor,
-        statusNote,
-        totalPenalty: parseFloat(totalPenalty.toFixed(1)),
-        micStatus: micText,
-        micStatusColor: micColor,
-        noiseLevel: noiseText,
-        noiseLevelColor: noiseColor,
-        speechClarity: clarityText,
-        speechClarityColor: clarityColor,
-        networkStatus: netText,
-        networkColor: netColor,
-        engine: "neural",
-        latencyMs: mlState.latencyMs,
-        rawSnr: snrVal,
-      };
-    }
-
-    // ----------------------------------------------------
-    // MODE B: HEURISTIC DSP ENGINE (Parametric Rule Baseline)
-    // ----------------------------------------------------
-    let baseMos = isActuallySpeaking ? 4.5 : 4.3;
-
-    // Natural Audio Penalties
-    if (liveDb > -5) baseMos -= 1.3;
-    else if (liveDb < -45 && isActuallySpeaking) baseMos -= 0.4;
-
-    let totalPenalty = 0;
-
-    if (simulations.noise) {
-      baseMos -= 1.2;
-      totalPenalty += 1.2;
-    }
-    if (simulations.packetLoss) {
-      baseMos -= 1.4;
-      totalPenalty += 1.4;
-    }
-    if (simulations.clipping) {
-      baseMos -= 1.6;
-      totalPenalty += 1.6;
-    }
-    if (simulations.muffled) {
-      baseMos -= 0.8;
-      totalPenalty += 0.8;
-    }
-
-    const calculatedMos = Math.max(1.0, Math.min(5.0, parseFloat(baseMos.toFixed(1))));
-
-    if (isActuallySpeaking) {
+    if (isActuallySpeaking && calculatedMos !== null) {
       hasSpokenRef.current = true;
       lastSpokenMosRef.current = calculatedMos;
     }
 
-    let ratingText = "EXCELLENT";
-    let ratingColor = "#10b981";
-    if (calculatedMos >= 4.0) {
-      ratingText = "GOOD";
-      ratingColor = "#0284c7";
-    } else if (calculatedMos >= 3.0) {
-      ratingText = "FAIR";
-      ratingColor = "#f59e0b";
-    } else {
-      ratingText = "POOR";
-      ratingColor = "#ef4444";
+    let ratingText = "MODEL LOADING";
+    let ratingColor = "#64748b";
+    if (!mlState.isLoaded) {
+      ratingText = "MODEL UNAVAILABLE";
+    } else if (calculatedMos !== null) {
+      ratingText = calculatedMos >= 4 ? "GOOD" : calculatedMos >= 3 ? "FAIR" : "POOR";
+      ratingColor = calculatedMos >= 4 ? "#0284c7" : calculatedMos >= 3 ? "#f59e0b" : "#ef4444";
     }
 
     let displayScore = "—";
-    let displayRating = "LISTENING (AWAITING SPEECH)";
-    let displayColor = "#0284c7";
-    let statusNote = "Speak into microphone or click 'Play Demo Voice' to evaluate quality";
+    let statusNote = mlState.isLoaded
+      ? "Speak into the microphone to get an on-device ML estimate"
+      : "The on-device ML model could not be loaded";
     let isSilent = true;
 
     if (!micEnabled && !isTestTonePlaying) {
-      displayScore = "—";
-      displayRating = "MIC MUTED";
-      displayColor = "#64748b";
-      statusNote = "Microphone muted • No speech audio stream";
-      isSilent = true;
-    } else if (isActuallySpeaking) {
+      ratingText = "MIC MUTED";
+      statusNote = "Enable the microphone or play the demo voice to analyze audio";
+    } else if (isActuallySpeaking && calculatedMos !== null) {
       displayScore = calculatedMos.toFixed(1);
-      displayRating = ratingText;
-      displayColor = ratingColor;
-      statusNote = "Active speech evaluated via heuristic DSP filters";
+      statusNote = "Score computed by the on-device EdgeAudioNet model";
       isSilent = false;
     } else if (hasSpokenRef.current && lastSpokenMosRef.current !== null) {
       displayScore = lastSpokenMosRef.current.toFixed(1);
-      displayRating = "PAUSED (LAST SPOKEN)";
-      displayColor = "#64748b";
-      statusNote = "User currently silent • Holding last evaluated voice score";
-      isSilent = true;
+      ratingText = "PAUSED (LAST ML SCORE)";
+      statusNote = "Speech paused; showing the last score produced by the ML model";
+    } else if (isActuallySpeaking && !mlState.hasPrediction) {
+      ratingText = "ANALYZING";
+      statusNote = "Waiting for the first on-device ML prediction";
     }
 
-    let micText = isActuallySpeaking ? "Optimal (Clean Gain)" : `Quiet Ambient (${liveDb} dBFS)`;
-    let micColor = isActuallySpeaking ? "#10b981" : "#64748b";
-    if (liveDb > -5) {
-      micText = "Clipping Detected";
-      micColor = "#ef4444";
-    } else if (!micEnabled && !isTestTonePlaying) {
-      micText = "Microphone Muted";
-      micColor = "#64748b";
-    }
+    const snrVal = Math.round(mlState.snr);
+    const micText = !micEnabled && !isTestTonePlaying
+      ? "Microphone Muted"
+      : mlState.clipProb > 0.35 || simulations.clipping || liveDb > -5
+      ? `Overload Detected (${Math.round(Math.max(mlState.clipProb, simulations.clipping ? 0.9 : 0.4) * 100)}% Saturation)`
+      : isActuallySpeaking ? "Speech Input Active" : `Quiet Input (${liveDb} dBFS)`;
+    const micColor = micText.startsWith("Overload") ? "#ef4444" : isActuallySpeaking ? "#10b981" : "#64748b";
 
-    let netText = peerCount > 1 ? "P2P Connected (2-Way Call)" : "Stable (Local Analysis)";
-    let netColor = "#0284c7";
-    if (simulations.packetLoss) {
-      netText = "Degraded (15% Packet Loss)";
-      netColor = "#ef4444";
-    }
-
-    let noiseText = isActuallySpeaking ? "Low (<12 dB SNR)" : "Quiet Ambient Floor";
-    let noiseColor = "#10b981";
-    if (simulations.noise) {
-      noiseText = "High (Cafe / Street Noise)";
-      noiseColor = "#f59e0b";
-    }
-
-    let clarityText = simulations.muffled
-      ? "Muffled (Narrowband Filter)"
-      : isActuallySpeaking
-      ? "Clear Formants (DSP Filterbank)"
-      : "Awaiting Voice (VAD Inactive)";
-    let clarityColor = simulations.muffled ? "#f59e0b" : isActuallySpeaking ? "#10b981" : "#64748b";
+    const networkStatus = simulations.packetLoss
+      ? "Packet loss simulation enabled"
+      : peerCount > 1 ? "P2P Connected (2-Way Call)" : "Stable (WASM Edge)";
+    const networkColor = simulations.packetLoss ? "#ef4444" : "#0284c7";
+    const noiseText = simulations.noise
+      ? "Noise simulation enabled"
+      : isActuallySpeaking ? `SNR ~ ${snrVal} dB (ML)` : `SNR estimate: ${snrVal} dB`;
+    const noiseColor = snrVal >= 25 ? "#10b981" : snrVal >= 12 ? "#f59e0b" : "#ef4444";
+    const speechClarity = simulations.muffled
+      ? "Muffled (Low-Pass Filter)"
+      : isActuallySpeaking ? "Speech Input Active" : "Awaiting Voice";
 
     return {
       mosScore: calculatedMos,
       mosDisplay: displayScore,
       isSilent,
-      ratingText: displayRating,
-      ratingColor: displayColor,
+      ratingText,
+      ratingColor,
       statusNote,
-      totalPenalty: parseFloat(totalPenalty.toFixed(1)),
       micStatus: micText,
       micStatusColor: micColor,
       noiseLevel: noiseText,
       noiseLevelColor: noiseColor,
-      speechClarity: clarityText,
-      speechClarityColor: clarityColor,
-      networkStatus: netText,
-      networkColor: netColor,
-      engine: "heuristic",
-      latencyMs: 0.1,
-      rawSnr: 32,
+      speechClarity,
+      speechClarityColor: simulations.muffled ? "#f59e0b" : isActuallySpeaking ? "#10b981" : "#64748b",
+      networkStatus,
+      networkColor,
+      engine: "neural",
+      latencyMs: mlState.latencyMs,
+      rawSnr: snrVal,
     };
-  }, [liveDb, isVoiceActive, micEnabled, isTestTonePlaying, simulations, peerCount, engineMode, mlState]);
+  }, [liveDb, isVoiceActive, micEnabled, isTestTonePlaying, simulations, peerCount, mlState]);
 
   // Keep currentMosRef in sync for rolling trend graph without stale closures
   useEffect(() => {
-    currentMosRef.current = qcMetrics.mosScore;
+    if (qcMetrics.mosScore !== null) currentMosRef.current = qcMetrics.mosScore;
   }, [qcMetrics.mosScore]);
 
   /* =====================================================
@@ -485,6 +307,7 @@ function LiveCommunication() {
                   clipProb: res.clipProb,
                   latencyMs: res.latencyMs,
                   isLoaded: true,
+                  hasPrediction: true,
                 });
               }
             }).catch(() => {});
@@ -493,7 +316,7 @@ function LiveCommunication() {
           // 4. Update 10s Rolling History Trend (1s interval)
           if (now - lastTrendTime > 1000) {
             lastTrendTime = now;
-            if (voiceActive || isTestTonePlaying || (hasSpokenRef.current && lastSpokenMosRef.current !== null)) {
+            if ((voiceActive || isTestTonePlaying) && currentMosRef.current !== null) {
               const liveScore = currentMosRef.current;
               setQualityTrend((prev) => {
                 return prev.length < 10 ? [...prev, liveScore] : [...prev.slice(1), liveScore];
@@ -1399,42 +1222,10 @@ function LiveCommunication() {
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                  <div style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    background: engineMode === "neural" ? "#ecfdf5" : "#edf7fb",
-                    padding: "6px 12px",
-                    borderRadius: "14px",
-                    fontSize: "12px",
-                    fontWeight: "800",
-                    color: engineMode === "neural" ? "#065f46" : "#0369a1",
-                    border: `1px solid ${engineMode === "neural" ? "#a7f3d0" : "#bae6fd"}`,
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
-                  }}>
-                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: engineMode === "neural" ? "#10b981" : "#0284c7", display: "inline-block" }}></span>
-                    {engineMode === "neural"
-                      ? `🟢 Neural ML Engine (EdgeAudioNet INT8 · 265 KB · ${qcMetrics.latencyMs}ms)`
-                      : "🔵 Heuristic DSP Mode (Parametric Rule Filters)"}
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#ecfdf5", padding: "6px 12px", borderRadius: "14px", fontSize: "12px", fontWeight: "800", color: "#065f46", border: "1px solid #a7f3d0" }}>
+                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: mlState.isLoaded ? "#10b981" : "#64748b", display: "inline-block" }}></span>
+                    {mlState.isLoaded ? `Neural ML Engine (EdgeAudioNet INT8 · ${qcMetrics.latencyMs}ms)` : mlState.isLoading ? "Loading on-device ML model…" : "On-device ML model unavailable"}
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setEngineMode((prev) => (prev === "neural" ? "heuristic" : "neural"))}
-                    style={{
-                      background: "#ffffff",
-                      border: "1px solid #94a3b8",
-                      color: "#07162d",
-                      borderRadius: "6px",
-                      padding: "5px 10px",
-                      fontSize: "11px",
-                      fontWeight: "700",
-                      cursor: "pointer",
-                      boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
-                    }}
-                  >
-                    {engineMode === "neural" ? "⇄ Switch to Heuristic DSP" : "⇄ Switch to Neural ML Engine"}
-                  </button>
                 </div>
               </div>
 
@@ -1463,13 +1254,6 @@ function LiveCommunication() {
                       <span style={{ fontSize: "15px", color: "#94a3b8" }}>/ 5.0 MOS</span>
                     </div>
 
-                    {/* Penalty Badge when simulations active */}
-                    {qcMetrics.totalPenalty > 0 && (
-                      <div style={{ fontSize: "11px", color: "#f87171", fontWeight: "700", marginBottom: "6px" }}>
-                        ⚠️ Compound Penalty: -{qcMetrics.totalPenalty} MOS
-                      </div>
-                    )}
-
                     <div style={{
                       display: "inline-block",
                       background: qcMetrics.ratingColor,
@@ -1491,10 +1275,10 @@ function LiveCommunication() {
                   {/* Engine Details Footer */}
                   <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: "8px" }}>
                     <div style={{ fontSize: "11px", fontWeight: "800", color: "#38bdf8" }}>
-                      {engineMode === "neural" ? "⚡ EdgeAudioNet (1D Conv-GRU)" : "⚙️ Parametric Filterbank"}
+                      {"EdgeAudioNet (1D Conv-GRU)"}
                     </div>
                     <div style={{ fontSize: "10px", color: "#94a3b8", display: "flex", justifyContent: "space-between", marginTop: "3px" }}>
-                      <span>{qcMetrics.isSilent ? "VAD: Listening..." : (engineMode === "neural" ? `WASM: ${qcMetrics.latencyMs}ms` : "Native DSP")}</span>
+                      <span>{qcMetrics.isSilent ? "VAD: Listening..." : `WASM: ${qcMetrics.latencyMs}ms`}</span>
                       <span>SNR: {qcMetrics.rawSnr} dB</span>
                     </div>
                   </div>
