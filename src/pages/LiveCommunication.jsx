@@ -76,6 +76,11 @@ function LiveCommunication() {
   const zeroGainRef = useRef(null);
   const oscillatorRef = useRef(null);
   const oscTimerRef = useRef(null);
+  const scriptProcessorRef = useRef(null);
+  const demoSourceRef = useRef(null);
+  const demoAudioBufferRef = useRef(null);
+  const demoMonitorGainRef = useRef(null);
+  const noiseStateRef = useRef(0);
   const filterNodeRef = useRef(null);
   const localStreamRef = useRef(null);
   const animationFrameRef = useRef(null);
@@ -141,21 +146,21 @@ function LiveCommunication() {
     const micText = !micEnabled && !isTestTonePlaying
       ? "Microphone Muted"
       : mlState.clipProb > 0.35 || simulations.clipping || liveDb > -5
-      ? `Overload Detected (${Math.round(Math.max(mlState.clipProb, simulations.clipping ? 0.9 : 0.4) * 100)}% Saturation)`
+      ? `Overload (${Math.round(Math.max(mlState.clipProb, simulations.clipping ? 0.95 : 0.4) * 100)}% Saturation)`
       : isActuallySpeaking ? "Speech Input Active" : canShowHeldScore ? `Quiet Pause (${liveDb} dBFS)` : `Quiet Input (${liveDb} dBFS)`;
     const micColor = micText.startsWith("Overload") ? "#ef4444" : isActuallySpeaking ? "#10b981" : "#64748b";
 
-    const networkStatus = simulations.packetLoss
-      ? "Packet loss simulation enabled"
+    const networkStatus = mlState.dropoutProb > 0.35 || simulations.packetLoss
+      ? `Packet Loss (${Math.round(Math.max(mlState.dropoutProb, simulations.packetLoss ? 0.95 : 0.45) * 100)}% Dropouts)`
       : peerCount > 1 ? "P2P Connected (2-Way Call)" : "Stable (WASM Edge)";
-    const networkColor = simulations.packetLoss ? "#ef4444" : "#0284c7";
+    const networkColor = (mlState.dropoutProb > 0.35 || simulations.packetLoss) ? "#ef4444" : "#0284c7";
     const noiseText = simulations.noise
-      ? "Noise simulation enabled"
-      : isActuallySpeaking ? `SNR ~ ${snrVal} dB (ML)` : `SNR estimate: ${snrVal} dB`;
-    const noiseColor = snrVal >= 25 ? "#10b981" : snrVal >= 12 ? "#f59e0b" : "#ef4444";
+      ? `Injected Noise (SNR: ${snrVal} dB)`
+      : isActuallySpeaking ? (snrVal < 16 ? `High Noise (SNR: ${snrVal} dB)` : `Clean Room (SNR: ${snrVal} dB)`) : `SNR estimate: ${snrVal} dB`;
+    const noiseColor = (snrVal < 16 || simulations.noise) ? "#ef4444" : snrVal >= 25 ? "#10b981" : "#f59e0b";
     const speechClarity = simulations.muffled
-      ? "Muffled (Low-Pass Filter)"
-      : isActuallySpeaking ? "Speech Input Active" : canShowHeldScore ? "Formants Retained" : "Awaiting Voice";
+      ? "Muffled (<850 Hz Cutoff)"
+      : isActuallySpeaking ? "Full-Band Clarity" : canShowHeldScore ? "Formants Retained" : "Awaiting Voice";
 
     return {
       mosScore: calculatedMos,
@@ -169,7 +174,7 @@ function LiveCommunication() {
       noiseLevel: noiseText,
       noiseLevelColor: noiseColor,
       speechClarity,
-      speechClarityColor: simulations.muffled ? "#f59e0b" : isActuallySpeaking ? "#10b981" : "#64748b",
+      speechClarityColor: simulations.muffled ? "#ef4444" : isActuallySpeaking ? "#10b981" : "#64748b",
       networkStatus,
       networkColor,
       engine: "neural",
@@ -212,8 +217,8 @@ function LiveCommunication() {
       }
 
       const analyser = analyserRef.current || audioCtx.createAnalyser();
-      analyser.fftSize = 2048;
-      analyser.smoothingTimeConstant = 0.15;
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.2;
       analyser.minDecibels = -100;
       analyser.maxDecibels = -25;
       analyserRef.current = analyser;
@@ -222,15 +227,68 @@ function LiveCommunication() {
       const biquadFilter = audioCtx.createBiquadFilter();
       biquadFilter.type = "lowpass";
       biquadFilter.frequency.value = simulationsRef.current.muffled ? 850 : 20000;
+      biquadFilter.Q.value = 1.5;
       filterNodeRef.current = biquadFilter;
       if (stream && stream.getAudioTracks && stream.getAudioTracks().length > 0) {
-        if (sourceRef.current) sourceRef.current.disconnect();
+        if (sourceRef.current) {
+          try { sourceRef.current.disconnect(); } catch (e) {}
+        }
         const source = audioCtx.createMediaStreamSource(stream);
         sourceRef.current = source;
         source.connect(biquadFilter);
       }
 
-      biquadFilter.connect(analyser);
+      // ScriptProcessorNode for real-time acoustic degradation and continuous PCM streaming
+      if (scriptProcessorRef.current) {
+        try { scriptProcessorRef.current.disconnect(); } catch (e) {}
+      }
+      const scriptNode = audioCtx.createScriptProcessor(2048, 1, 1);
+      scriptProcessorRef.current = scriptNode;
+
+      scriptNode.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        const output = e.outputBuffer.getChannelData(0);
+        const sims = simulationsRef.current;
+        const sampleRate = audioCtx.sampleRate;
+        const dropPeriod = Math.round(sampleRate * 0.42);
+        const dropDuration = Math.round(sampleRate * 0.085);
+
+        for (let i = 0; i < input.length; i++) {
+          let s = input[i];
+
+          // 1. Background Noise Simulation (ambient colored noise ~10-12 dB SNR)
+          if (sims.noise) {
+            noiseStateRef.current = 0.92 * noiseStateRef.current + 0.08 * (Math.random() * 2 - 1);
+            const noiseVal = noiseStateRef.current * 0.35 + (Math.random() * 2 - 1) * 0.08;
+            s += noiseVal * 0.45;
+          }
+
+          // 2. Mic Overload / Clipping Saturation (+14 dB boost into hard saturation)
+          if (sims.clipping) {
+            const boosted = s * 5.0;
+            s = Math.max(-0.25, Math.min(0.25, boosted)) * 3.8;
+          }
+
+          // 3. WebRTC Packet Loss Simulation (85ms burst dropouts)
+          if (sims.packetLoss) {
+            if (packetLossCursorRef.current % dropPeriod < dropDuration) {
+              s = 0.0;
+            }
+            packetLossCursorRef.current++;
+          }
+
+          output[i] = s;
+        }
+
+        // Push continuous, gapless PCM into ML active speech buffer
+        if (isVoiceActiveRef.current || isTestTonePlayingRef.current) {
+          mlAudioAnalyzer.pushAudio(output, sampleRate);
+        }
+      };
+
+      // Connect: filter -> scriptNode -> analyser
+      biquadFilter.connect(scriptNode);
+      scriptNode.connect(analyser);
 
       // Silent zero-gain sink to prevent browser pausing stream
       const zeroGain = audioCtx.createGain();
@@ -239,12 +297,18 @@ function LiveCommunication() {
       analyser.connect(zeroGain);
       zeroGain.connect(audioCtx.destination);
 
+      // Demo Voice monitor output (routed to speakers so user can hear demo speech & real effects!)
+      const demoMonitorGain = audioCtx.createGain();
+      demoMonitorGain.gain.value = isTestTonePlayingRef.current ? 0.35 : 0.0;
+      demoMonitorGainRef.current = demoMonitorGain;
+      analyser.connect(demoMonitorGain);
+      demoMonitorGain.connect(audioCtx.destination);
+
       const timeBuffer = new Float32Array(analyser.fftSize);
       const freqBuffer = new Uint8Array(analyser.frequencyBinCount);
 
       let lastStateTime = Date.now();
       let lastTrendTime = Date.now();
-      let lastAudioSampleTime = performance.now();
       let previousBandEnergies = null;
 
       const renderLoop = () => {
@@ -380,30 +444,8 @@ function LiveCommunication() {
             setIsVoiceActive(voiceActive);
           }
 
-          // Feed only new audio samples to the model; analyser windows overlap between frames.
-          const sampleTime = performance.now();
-          const elapsedSamples = Math.max(0, Math.round((sampleTime - lastAudioSampleTime) * audioCtx.sampleRate / 1000));
-          lastAudioSampleTime = sampleTime;
-          const newSampleCount = Math.min(timeBuffer.length, elapsedSamples);
-          if (newSampleCount > 0 && voiceActive) {
-            const modelPcm = new Float32Array(newSampleCount);
-            const firstSample = timeBuffer.length - newSampleCount;
-            const activeSimulations = simulationsRef.current;
-            const periodSamples = Math.round(audioCtx.sampleRate * 0.7);
-            const droppedSamples = Math.round(audioCtx.sampleRate * 0.09);
-            for (let i = 0; i < newSampleCount; i++) {
-              let sample = timeBuffer[firstSample + i];
-              if (activeSimulations.noise) sample += (Math.random() * 2 - 1) * 0.055;
-              if (activeSimulations.clipping) sample = Math.max(-0.22, Math.min(0.22, sample * 4));
-              if (activeSimulations.packetLoss && packetLossCursorRef.current % periodSamples < droppedSamples) sample = 0;
-              modelPcm[i] = sample;
-              packetLossCursorRef.current++;
-            }
-            mlAudioAnalyzer.pushAudio(modelPcm, audioCtx.sampleRate);
-          }
-
-          // Periodic ML inference runs on the transformed PCM stream.
-          if (voiceActive && now - lastMlTimeRef.current > 450) {
+          // Periodic ML inference runs on the continuous active speech buffer
+          if (voiceActive && now - lastMlTimeRef.current > 400) {
             lastMlTimeRef.current = now;
             mlAudioAnalyzer.predict().then((res) => {
               if (res && res.isReady && !res.isSilent && voiceActive) {
@@ -480,6 +522,16 @@ function LiveCommunication() {
   ===================================================== */
   const toggleTestTone = async () => {
     if (isTestTonePlaying) {
+      if (demoSourceRef.current) {
+        try {
+          demoSourceRef.current.stop();
+          demoSourceRef.current.disconnect();
+        } catch (e) {}
+        demoSourceRef.current = null;
+      }
+      if (demoMonitorGainRef.current) {
+        demoMonitorGainRef.current.gain.value = 0.0;
+      }
       if (oscillatorRef.current) {
         try {
           oscillatorRef.current.stop();
@@ -495,6 +547,7 @@ function LiveCommunication() {
       lastSpeechTimeRef.current = 0;
       isScoreHeldRef.current = false;
       setIsScoreHeld(false);
+      mlAudioAnalyzer.resetBuffer();
       setMlState((prev) => ({ ...prev, mos: null, hasPrediction: false }));
       return;
     }
@@ -504,34 +557,31 @@ function LiveCommunication() {
         await startAudioDSP(null);
       }
       const audioCtx = audioContextRef.current;
-      const analyser = analyserRef.current;
-      if (!audioCtx || !analyser) throw new Error("Audio analysis graph is unavailable");
+      if (!audioCtx) throw new Error("Audio analysis graph is unavailable");
       if (audioCtx.state === "suspended") await audioCtx.resume();
 
-      const oscillator = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      oscillator.type = "sawtooth";
-      oscillator.frequency.setValueAtTime(145, audioCtx.currentTime);
-      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
-      oscillator.connect(gain);
-      gain.connect(filterNodeRef.current || analyser);
-      const monitorGain = audioCtx.createGain();
-      monitorGain.gain.value = 0.35;
-      gain.connect(monitorGain);
-      monitorGain.connect(audioCtx.destination);
-      oscillator.start();
-      oscillatorRef.current = oscillator;
+      // Load studio-quality human voice recording (/audio/demo_voice.wav)
+      if (!demoAudioBufferRef.current) {
+        const resp = await fetch("/audio/demo_voice.wav");
+        const arrayBuf = await resp.arrayBuffer();
+        demoAudioBufferRef.current = await audioCtx.decodeAudioData(arrayBuf);
+      }
 
-      const syllables = [[145, 0.08], [190, 0.16], [165, 0.1], [215, 0.18], [155, 0.075], [205, 0.17], [175, 0.09], [225, 0.16]];
-      let step = 0;
-      oscTimerRef.current = setInterval(() => {
-        if (!oscillatorRef.current || audioCtx.state === "closed") return;
-        const [frequency, level] = syllables[step % syllables.length];
-        const at = audioCtx.currentTime;
-        oscillatorRef.current.frequency.setTargetAtTime(frequency, at, 0.035);
-        gain.gain.setTargetAtTime(level, at, 0.025);
-        step++;
-      }, 140);
+      // Create looping buffer source for continuous clean speech
+      const source = audioCtx.createBufferSource();
+      source.buffer = demoAudioBufferRef.current;
+      source.loop = true;
+
+      // Connect into DSP graph before degradation filters
+      source.connect(filterNodeRef.current || analyserRef.current);
+      demoSourceRef.current = source;
+
+      // Enable speaker monitor gain so user clearly hears realistic human voice
+      if (demoMonitorGainRef.current) {
+        demoMonitorGainRef.current.gain.value = 0.35;
+      }
+
+      source.start();
 
       setIsTestTonePlaying(true);
       isTestTonePlayingRef.current = true;
@@ -809,6 +859,25 @@ function LiveCommunication() {
   const leaveMeeting = () => {
     stopRoomSignaling(meetingId);
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    if (demoSourceRef.current) {
+      try {
+        demoSourceRef.current.stop();
+        demoSourceRef.current.disconnect();
+      } catch (e) {}
+      demoSourceRef.current = null;
+    }
+    if (scriptProcessorRef.current) {
+      try {
+        scriptProcessorRef.current.disconnect();
+      } catch (e) {}
+      scriptProcessorRef.current = null;
+    }
+    if (demoMonitorGainRef.current) {
+      try {
+        demoMonitorGainRef.current.disconnect();
+      } catch (e) {}
+      demoMonitorGainRef.current = null;
+    }
     if (oscTimerRef.current) clearInterval(oscTimerRef.current);
     if (oscillatorRef.current) {
       try {

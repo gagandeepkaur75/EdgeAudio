@@ -22,6 +22,9 @@ class MLAudioAnalyzer {
     this.audioBuffer = new Float32Array(this.windowSize);
     this.bufferIndex = 0;
     this.samplesAccumulated = 0;
+    this.pendingFrame = new Float32Array(800); // 50ms sub-frame at 16 kHz
+    this.pendingFrameIdx = 0;
+    this.dynamicPeak = 0.1;
 
     // Smoothed metrics
     this.lastResult = {
@@ -81,44 +84,64 @@ class MLAudioAnalyzer {
   }
 
   /**
-   * Pushes raw time-domain PCM samples from Web Audio AnalyserNode (e.g. 44.1k or 48k)
-   * and resamples down to 16,000 Hz into the rolling window buffer.
-   *
-   * @param {Float32Array} rawPcm - Audio buffer from analyser.getFloatTimeDomainData()
-   * @param {number} inputSampleRate - Current Web Audio sampleRate (e.g. 48000)
+   * Pushes continuous PCM samples from Web Audio (e.g. 44.1k or 48k)
+   * and downsamples to 16,000 Hz. Accumulates active speech frames into
+   * the rolling analysis buffer, ensuring natural pauses between words
+   * do not contaminate the neural network's quality window.
    */
   pushAudio(rawPcm, inputSampleRate = 48000) {
     if (!rawPcm || rawPcm.length === 0) return;
 
+    // Downsample incoming PCM to 16 kHz
+    let resampled;
     if (inputSampleRate === this.targetSampleRate) {
-      // Direct copy into rolling buffer
-      for (let i = 0; i < rawPcm.length; i++) {
-        this.audioBuffer[this.bufferIndex] = rawPcm[i];
-        this.bufferIndex = (this.bufferIndex + 1) % this.windowSize;
-      }
-      this.samplesAccumulated = Math.min(
-        this.windowSize,
-        this.samplesAccumulated + rawPcm.length
-      );
+      resampled = rawPcm;
     } else {
-      // Linear interpolation downsampling to 16 kHz
       const ratio = inputSampleRate / this.targetSampleRate;
       const targetLen = Math.floor(rawPcm.length / ratio);
+      resampled = new Float32Array(targetLen);
 
       for (let i = 0; i < targetLen; i++) {
         const srcPos = i * ratio;
         const index0 = Math.floor(srcPos);
         const index1 = Math.min(rawPcm.length - 1, index0 + 1);
         const weight = srcPos - index0;
-        const sample = rawPcm[index0] * (1.0 - weight) + rawPcm[index1] * weight;
-
-        this.audioBuffer[this.bufferIndex] = sample;
-        this.bufferIndex = (this.bufferIndex + 1) % this.windowSize;
+        resampled[i] = rawPcm[index0] * (1.0 - weight) + rawPcm[index1] * weight;
       }
-      this.samplesAccumulated = Math.min(
-        this.windowSize,
-        this.samplesAccumulated + targetLen
-      );
+    }
+
+    // Process in 50ms sub-frames (800 samples at 16 kHz)
+    const FRAME_SIZE = 800;
+    for (let i = 0; i < resampled.length; i++) {
+      this.pendingFrame[this.pendingFrameIdx++] = resampled[i];
+      if (this.pendingFrameIdx >= FRAME_SIZE) {
+        let sumSq = 0;
+        let peak = 0;
+        for (let j = 0; j < FRAME_SIZE; j++) {
+          const s = this.pendingFrame[j];
+          const abs = Math.abs(s);
+          if (abs > peak) peak = abs;
+          sumSq += s * s;
+        }
+        const rms = Math.sqrt(sumSq / FRAME_SIZE);
+
+        // Update running peak of human speech to adapt dynamically across microphones
+        this.dynamicPeak = Math.max(0.04, 0.95 * this.dynamicPeak + 0.05 * peak);
+        const thresh = Math.max(0.010, this.dynamicPeak * 0.12);
+
+        // If active vocalization, record frame into rolling quality buffer
+        if (rms >= thresh || peak >= thresh * 2) {
+          for (let j = 0; j < FRAME_SIZE; j++) {
+            this.audioBuffer[this.bufferIndex] = this.pendingFrame[j];
+            this.bufferIndex = (this.bufferIndex + 1) % this.windowSize;
+          }
+          this.samplesAccumulated = Math.min(
+            this.windowSize,
+            this.samplesAccumulated + FRAME_SIZE
+          );
+        }
+        this.pendingFrameIdx = 0;
+      }
     }
   }
 
@@ -126,16 +149,20 @@ class MLAudioAnalyzer {
     this.audioBuffer.fill(0);
     this.bufferIndex = 0;
     this.samplesAccumulated = 0;
+    this.pendingFrame.fill(0);
+    this.pendingFrameIdx = 0;
+    this.dynamicPeak = 0.1;
   }
 
   /**
-   * Extracts linear ordered 1.0 second (16,000 samples) window from the ring buffer.
+   * Extracts linear ordered 1.0 second (16,000 samples) window from the active buffer.
    */
   getOrderedWindow() {
     const window = new Float32Array(this.windowSize);
+    if (this.samplesAccumulated === 0) return window;
+
     if (this.samplesAccumulated < this.windowSize) {
-      if (this.samplesAccumulated === 0) return window;
-      // Loop/tile the accumulated active speech so it does not create artificial silence dropouts
+      // Loop/tile the accumulated active speech so it seamlessly fills 1.0 second
       for (let i = 0; i < this.windowSize; i++) {
         window[i] = this.audioBuffer[i % this.samplesAccumulated];
       }
@@ -172,7 +199,7 @@ class MLAudioAnalyzer {
 
     // Silence is not a quality sample. Keep the last model result internally, but
     // tell the UI to hide it until a fresh speech window has been analyzed.
-    if (rms < 0.015 || peak < 0.05) {
+    if (this.samplesAccumulated < 800 || rms < 0.005 || peak < 0.02) {
       this.lastResult = {
         ...this.lastResult,
         isSilent: true,
@@ -191,7 +218,7 @@ class MLAudioAnalyzer {
       // Scaling active speech peak to targetPeak (0.88) ensures clean formants are recognized at 4.0+ MOS!
       const normalizedWindow = new Float32Array(this.windowSize);
       const targetPeak = 0.88;
-      const scaleFactor = Math.min(25.0, targetPeak / Math.max(peak, 0.01));
+      const scaleFactor = Math.min(30.0, targetPeak / Math.max(peak, 0.01));
       for (let i = 0; i < this.windowSize; i++) {
         normalizedWindow[i] = window[i] * scaleFactor;
       }
