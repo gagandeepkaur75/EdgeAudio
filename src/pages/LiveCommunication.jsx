@@ -55,6 +55,10 @@ function LiveCommunication() {
     clipping: false,
     muffled: false,
   });
+  const simulationsRef = useRef(simulations);
+  const packetLossCursorRef = useRef(0);
+  const speechEnergyHistoryRef = useRef([]);
+  const noiseFloorRef = useRef(0.003);
 
   // Rolling Quality History Trend
   const [qualityTrend, setQualityTrend] = useState([]);
@@ -96,14 +100,16 @@ function LiveCommunication() {
     let ratingColor = "#64748b";
     if (!mlState.isLoaded) {
       ratingText = "MODEL UNAVAILABLE";
-    } else if (calculatedMos !== null) {
+    } else if (isActuallySpeaking && calculatedMos !== null) {
       ratingText = calculatedMos >= 4 ? "GOOD" : calculatedMos >= 3 ? "FAIR" : "POOR";
       ratingColor = calculatedMos >= 4 ? "#0284c7" : calculatedMos >= 3 ? "#f59e0b" : "#ef4444";
+    } else {
+      ratingText = "LISTENING";
     }
 
     let displayScore = "—";
     let statusNote = mlState.isLoaded
-      ? "Speak into the microphone to get an on-device ML estimate"
+      ? "Listening for speech; background sound alone will not be scored"
       : "The on-device ML model could not be loaded";
     let isSilent = true;
 
@@ -182,30 +188,31 @@ function LiveCommunication() {
   ===================================================== */
   const startAudioDSP = async (stream) => {
     try {
-      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-        await audioContextRef.current.close().catch(() => {});
-      }
-
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      const audioCtx = new AudioCtx();
-      audioContextRef.current = audioCtx;
+      let audioCtx = audioContextRef.current;
+      if (!audioCtx || audioCtx.state === "closed") {
+        audioCtx = new AudioCtx();
+        audioContextRef.current = audioCtx;
+      }
 
       if (audioCtx.state === "suspended") {
         await audioCtx.resume();
       }
 
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.5;
+      const analyser = analyserRef.current || audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.15;
+      analyser.minDecibels = -100;
+      analyser.maxDecibels = -25;
       analyserRef.current = analyser;
 
       // Filter node for Muffled acoustic simulation
       const biquadFilter = audioCtx.createBiquadFilter();
       biquadFilter.type = "lowpass";
-      biquadFilter.frequency.value = simulations.muffled ? 850 : 20000;
+      biquadFilter.frequency.value = simulationsRef.current.muffled ? 850 : 20000;
       filterNodeRef.current = biquadFilter;
-
       if (stream && stream.getAudioTracks && stream.getAudioTracks().length > 0) {
+        if (sourceRef.current) sourceRef.current.disconnect();
         const source = audioCtx.createMediaStreamSource(stream);
         sourceRef.current = source;
         source.connect(biquadFilter);
@@ -225,6 +232,8 @@ function LiveCommunication() {
 
       let lastStateTime = Date.now();
       let lastTrendTime = Date.now();
+      let lastAudioSampleTime = performance.now();
+      let previousBandEnergies = null;
 
       const renderLoop = () => {
         if (!analyserRef.current) return;
@@ -251,29 +260,62 @@ function LiveCommunication() {
           const currentPercent = Math.min(100, Math.round(smoothedRmsRef.current * 450));
           const now = Date.now();
 
-          // Calibrated Voice Activity Detection (VAD) with Speech Hangover:
-          // Human speech formants concentrate in 250 Hz - 3.8 kHz (FFT bins 2 to 24).
-          // Ambient silence / room noise / AGC sits around RMS 0.004-0.012 and vocal byte 70-110.
-          let vocalSum = 0;
-          let vocalPeak = 0;
-          const startBin = 2;
-          const endBin = 24;
-          for (let i = startBin; i <= endBin && i < freqBuffer.length; i++) {
-            const v = freqBuffer[i];
-            vocalSum += v;
-            if (v > vocalPeak) vocalPeak = v;
+          // Speech gate: combine speech-band energy, spectral flatness, and syllabic
+          // level variation. A steady hum or broadband hiss alone should not count as speech.
+          const binHz = audioCtx.sampleRate / analyser.fftSize;
+          const speechStartBin = Math.max(1, Math.floor(250 / binHz));
+          const speechEndBin = Math.min(freqBuffer.length - 1, Math.ceil(4000 / binHz));
+          const totalStartBin = Math.max(1, Math.floor(100 / binHz));
+          const totalEndBin = Math.min(freqBuffer.length - 1, Math.ceil(8000 / binHz));
+          let speechPower = 0;
+          let totalPower = 0;
+          let logPowerSum = 0;
+          let peakPower = 0;
+          let bandBinCount = 0;
+          const bandEnergies = [];
+          for (let i = totalStartBin; i <= totalEndBin; i++) {
+            const db = (freqBuffer[i] / 255) * (analyser.maxDecibels - analyser.minDecibels) + analyser.minDecibels;
+            const power = 10 ** (db / 10);
+            totalPower += power;
+            if (i >= speechStartBin && i <= speechEndBin) {
+              speechPower += power;
+              logPowerSum += Math.log(Math.max(power, 1e-12));
+              peakPower = Math.max(peakPower, power);
+              bandBinCount++;
+              bandEnergies.push(power);
+            }
           }
-          const vocalAvg = vocalSum / (endBin - startBin + 1);
-
-          // Calibrated speech detection: requires RMS energy > 0.016 (-36 dBFS) AND
-          // formant peak > 120 with spectral prominence above noise floor (or strong peak > 150)
-          const isSpeakingInstant = isTestTonePlaying || (rms > 0.016 && vocalPeak > 120 && (vocalPeak - vocalAvg > 20 || vocalPeak > 150));
-          if (isSpeakingInstant) {
-            lastSpeechTimeRef.current = now;
+          const speechBandRatio = speechPower / Math.max(totalPower, 1e-12);
+          const averageBandPower = speechPower / Math.max(1, bandBinCount);
+          const spectralFlatness = Math.exp(logPowerSum / Math.max(1, bandBinCount)) / Math.max(averageBandPower, 1e-12);
+          const peakToAverage = peakPower / Math.max(averageBandPower, 1e-12);
+          let spectralChange = 0;
+          if (previousBandEnergies && previousBandEnergies.length === bandEnergies.length) {
+            let changeSum = 0;
+            for (let i = 0; i < bandEnergies.length; i++) {
+              changeSum += Math.abs(bandEnergies[i] - previousBandEnergies[i]);
+            }
+            spectralChange = changeSum / Math.max(speechPower, 1e-12);
           }
+          previousBandEnergies = bandEnergies;
 
-          // Speech hangover: stay active for 400ms across natural inter-syllable pauses
-          const voiceActive = isTestTonePlaying || (now - lastSpeechTimeRef.current < 400);
+          const energyHistory = speechEnergyHistoryRef.current;
+          energyHistory.push(rms);
+          if (energyHistory.length > 36) energyHistory.shift();
+          const historyMean = energyHistory.reduce((sumValue, value) => sumValue + value, 0) / energyHistory.length;
+          const historyVariance = energyHistory.reduce((sumValue, value) => sumValue + (value - historyMean) ** 2, 0) / energyHistory.length;
+          const energyVariation = Math.sqrt(historyVariance) / Math.max(historyMean, 1e-5);
+          const estimatedNoiseFloor = noiseFloorRef.current;
+          const speechLevel = rms > Math.max(0.008, estimatedNoiseFloor * 1.8);
+          const speechLikeSpectrum = speechBandRatio > 0.65 && (spectralFlatness < 0.48 || peakToAverage > 12);
+          const speechDynamics = energyVariation > 0.1 || spectralChange > 0.35;
+          const isSpeakingInstant = isTestTonePlaying || (energyHistory.length >= 12 && speechLevel && speechLikeSpectrum && speechDynamics);
+
+          if (!isSpeakingInstant) {
+            noiseFloorRef.current = Math.max(0.001, estimatedNoiseFloor * 0.97 + Math.min(rms, estimatedNoiseFloor * 2.5) * 0.03);
+          }
+          if (isSpeakingInstant) lastSpeechTimeRef.current = now;
+          const voiceActive = isTestTonePlaying || (now - lastSpeechTimeRef.current < 500);
 
           // 2. Throttled State Update (10Hz) to prevent React state thrashing
           if (now - lastStateTime > 100) {
@@ -283,8 +325,29 @@ function LiveCommunication() {
             setIsVoiceActive(voiceActive);
           }
 
-          // 3. Continuous Audio Buffer Feed & Periodic ML Neural Inference
-          mlAudioAnalyzer.pushAudio(timeBuffer, audioCtx.sampleRate);
+          // Feed only new audio samples to the model; analyser windows overlap between frames.
+          const sampleTime = performance.now();
+          const elapsedSamples = Math.max(0, Math.round((sampleTime - lastAudioSampleTime) * audioCtx.sampleRate / 1000));
+          lastAudioSampleTime = sampleTime;
+          const newSampleCount = Math.min(timeBuffer.length, elapsedSamples);
+          if (newSampleCount > 0) {
+            const modelPcm = new Float32Array(newSampleCount);
+            const firstSample = timeBuffer.length - newSampleCount;
+            const activeSimulations = simulationsRef.current;
+            const periodSamples = Math.round(audioCtx.sampleRate * 0.7);
+            const droppedSamples = Math.round(audioCtx.sampleRate * 0.09);
+            for (let i = 0; i < newSampleCount; i++) {
+              let sample = timeBuffer[firstSample + i];
+              if (activeSimulations.noise) sample += (Math.random() * 2 - 1) * 0.055;
+              if (activeSimulations.clipping) sample = Math.max(-0.22, Math.min(0.22, sample * 4));
+              if (activeSimulations.packetLoss && packetLossCursorRef.current % periodSamples < droppedSamples) sample = 0;
+              modelPcm[i] = sample;
+              packetLossCursorRef.current++;
+            }
+            mlAudioAnalyzer.pushAudio(modelPcm, audioCtx.sampleRate);
+          }
+
+          // Periodic ML inference runs on the transformed PCM stream.
           if (now - lastMlTimeRef.current > 450) {
             lastMlTimeRef.current = now;
             mlAudioAnalyzer.predict().then((res) => {
@@ -358,7 +421,7 @@ function LiveCommunication() {
   };
 
   /* =====================================================
-     SIMULATED SPEECH TONE GENERATOR (INSTANT 1-CLICK DEMO)
+     LOCAL DEMO VOICE SOURCE
   ===================================================== */
   const toggleTestTone = async () => {
     if (isTestTonePlaying) {
@@ -370,74 +433,54 @@ function LiveCommunication() {
         oscillatorRef.current = null;
       }
       if (oscTimerRef.current) clearInterval(oscTimerRef.current);
+      oscTimerRef.current = null;
       setIsTestTonePlaying(false);
       setIsVoiceActive(false);
       lastSpeechTimeRef.current = 0;
-    } else {
-      try {
-        let audioCtx = audioContextRef.current;
-        if (!audioCtx || audioCtx.state === "closed") {
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          audioCtx = new AudioCtx();
-          audioContextRef.current = audioCtx;
-        }
+      return;
+    }
 
-        if (audioCtx.state === "suspended") {
-          await audioCtx.resume();
-        }
-
-        let analyser = analyserRef.current;
-        if (!analyser) {
-          analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 256;
-          analyser.smoothingTimeConstant = 0.5;
-          analyserRef.current = analyser;
-        }
-
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(220, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-
-        osc.connect(gain);
-
-        // Connect through filter for muffled simulation
-        if (filterNodeRef.current) {
-          gain.connect(filterNodeRef.current);
-        } else {
-          gain.connect(analyser);
-        }
-
-        const zeroGain = audioCtx.createGain();
-        zeroGain.gain.value = 0;
-        analyser.connect(zeroGain);
-        zeroGain.connect(audioCtx.destination);
-
-        osc.start();
-        oscillatorRef.current = osc;
-
-        // Modulate pitch to simulate human speech formant contours
-        let step = 0;
-        const pitches = [220, 290, 350, 260, 310, 240, 380, 220, 190, 330];
-        oscTimerRef.current = setInterval(() => {
-          if (oscillatorRef.current && audioCtx.state !== "closed") {
-            step = (step + 1) % pitches.length;
-            oscillatorRef.current.frequency.setValueAtTime(pitches[step], audioCtx.currentTime);
-          }
-        }, 300);
-
-        setIsTestTonePlaying(true);
-        setMicEnabled(true);
-        setIsVoiceActive(true);
-        lastSpeechTimeRef.current = Date.now();
-
-        if (!animationFrameRef.current) {
-          startAudioDSP(null);
-        }
-      } catch (err) {
-        console.error("Test speech generator failed:", err);
+    try {
+      if (!audioContextRef.current || audioContextRef.current.state === "closed" || !analyserRef.current) {
+        await startAudioDSP(null);
       }
+      const audioCtx = audioContextRef.current;
+      const analyser = analyserRef.current;
+      if (!audioCtx || !analyser) throw new Error("Audio analysis graph is unavailable");
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+
+      const oscillator = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      oscillator.type = "sawtooth";
+      oscillator.frequency.setValueAtTime(145, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      oscillator.connect(gain);
+      gain.connect(filterNodeRef.current || analyser);
+      const monitorGain = audioCtx.createGain();
+      monitorGain.gain.value = 0.025;
+      gain.connect(monitorGain);
+      monitorGain.connect(audioCtx.destination);
+      oscillator.start();
+      oscillatorRef.current = oscillator;
+
+      const syllables = [[145, 0.08], [190, 0.16], [165, 0.1], [215, 0.18], [155, 0.075], [205, 0.17], [175, 0.09], [225, 0.16]];
+      let step = 0;
+      oscTimerRef.current = setInterval(() => {
+        if (!oscillatorRef.current || audioCtx.state === "closed") return;
+        const [frequency, level] = syllables[step % syllables.length];
+        const at = audioCtx.currentTime;
+        oscillatorRef.current.frequency.setTargetAtTime(frequency, at, 0.035);
+        gain.gain.setTargetAtTime(level, at, 0.025);
+        step++;
+      }, 140);
+
+      setIsTestTonePlaying(true);
+      setIsVoiceActive(true);
+      lastSpeechTimeRef.current = Date.now();
+      setErrorMessage("");
+    } catch (err) {
+      console.error("Test speech generator failed:", err);
+      setErrorMessage("The demo voice could not start. Check that your browser allows audio playback, then try again.");
     }
   };
 
@@ -729,8 +772,13 @@ function LiveCommunication() {
     setIsTestTonePlaying(false);
     setQualityTrend([]);
     lastSpeechTimeRef.current = 0;
+    speechEnergyHistoryRef.current = [];
+    noiseFloorRef.current = 0.003;
+    packetLossCursorRef.current = 0;
+    const clearedSimulations = { noise: false, packetLoss: false, clipping: false, muffled: false };
+    simulationsRef.current = clearedSimulations;
     setIsVoiceActive(false);
-    setSimulations({ noise: false, packetLoss: false, clipping: false, muffled: false });
+    setSimulations(clearedSimulations);
     setSearchParams({});
   };
 
@@ -777,7 +825,9 @@ function LiveCommunication() {
   const toggleSimulation = (key) => {
     setSimulations((prev) => {
       const next = { ...prev, [key]: !prev[key] };
-      
+      simulationsRef.current = next;
+      if (key === "packetLoss" && !next.packetLoss) packetLossCursorRef.current = 0;
+
       // Physically adjust lowpass filter in Web Audio Graph
       if (filterNodeRef.current && audioContextRef.current) {
         if (key === "muffled") {
@@ -793,7 +843,10 @@ function LiveCommunication() {
   };
 
   const resetSimulations = () => {
-    setSimulations({ noise: false, packetLoss: false, clipping: false, muffled: false });
+    const cleared = { noise: false, packetLoss: false, clipping: false, muffled: false };
+    simulationsRef.current = cleared;
+    packetLossCursorRef.current = 0;
+    setSimulations(cleared);
     if (filterNodeRef.current && audioContextRef.current) {
       filterNodeRef.current.frequency.setValueAtTime(20000, audioContextRef.current.currentTime);
     }
@@ -815,6 +868,7 @@ function LiveCommunication() {
   }, []);
 
   const anySimActive = Object.values(simulations).some(Boolean);
+  const audioInputActive = micEnabled || isTestTonePlaying;
 
   /* =====================================================
      RENDER
@@ -925,10 +979,10 @@ function LiveCommunication() {
                 <span style={{ fontSize: "28px" }}>{micEnabled ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
                 <div style={{ textAlign: "left" }}>
                   <div style={{ fontSize: "14px", fontWeight: "800", color: "#07162d" }}>
-                    {micEnabled ? (isVoiceActive ? "Speaking (Voice Detected)" : "Microphone Active (Listening)") : "Microphone Idle"}
+                    {isTestTonePlaying ? "Demo voice playing" : micEnabled ? (isVoiceActive ? "Speaking (Voice Detected)" : "Microphone Active (Listening)") : "Microphone Idle"}
                   </div>
-                  <div style={{ fontSize: "12px", color: micEnabled ? (isVoiceActive ? "#10b981" : "#0284c7") : "#64748b", fontWeight: "700" }}>
-                    {micEnabled ? `${liveDb} dBFS • Volume: ${volumePercent}%` : "Click 'Test Mic' to verify your input"}
+                  <div style={{ fontSize: "12px", color: audioInputActive ? (isVoiceActive ? "#10b981" : "#0284c7") : "#64748b", fontWeight: "700" }}>
+                    {audioInputActive ? `${liveDb} dBFS · Volume: ${volumePercent}%` : "Test the microphone or play the demo voice"}
                   </div>
 
                   {/* Neural Engine status badge */}
@@ -950,7 +1004,7 @@ function LiveCommunication() {
                   </div>
 
                   {/* Real-time Bouncing VU Meter Bar */}
-                  {micEnabled && (
+                  {audioInputActive && (
                     <div style={{ width: "160px", height: "6px", background: "#e2e8f0", borderRadius: "3px", overflow: "hidden", marginTop: "4px" }}>
                       <div style={{
                         width: `${volumePercent}%`,
@@ -972,23 +1026,20 @@ function LiveCommunication() {
               />
 
               <div style={{ display: "flex", gap: "8px" }}>
-                {!micEnabled ? (
-                  <button
-                    type="button"
-                    onClick={requestMicrophone}
-                    style={{ background: "#07162d", color: "#ffffff", border: "none", padding: "10px 18px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}
-                  >
-                    🎤 Test Mic Now
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={toggleTestTone}
-                    style={{ background: isTestTonePlaying ? "#ef4444" : "#edf7fb", color: isTestTonePlaying ? "#ffffff" : "#0369a1", border: "1px solid #bae6fd", padding: "10px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}
-                  >
-                    {isTestTonePlaying ? "⏹ Stop Demo" : "▶ Play Voice Demo"}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={micEnabled ? toggleMicrophone : requestMicrophone}
+                  style={{ background: "#07162d", color: "#ffffff", border: "none", padding: "10px 18px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}
+                >
+                  {micEnabled ? "Mute Microphone" : "Test Microphone"}
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleTestTone}
+                  style={{ background: isTestTonePlaying ? "#ef4444" : "#edf7fb", color: isTestTonePlaying ? "#ffffff" : "#0369a1", border: "1px solid #bae6fd", padding: "10px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}
+                >
+                  {isTestTonePlaying ? "Stop Demo Voice" : "Play Demo Voice"}
+                </button>
               </div>
             </div>
 
@@ -1407,7 +1458,7 @@ function LiveCommunication() {
                         cursor: "pointer"
                       }}
                     >
-                      ✕ Reset to Clean (4.5 MOS)
+                      ✕ Reset Audio Conditions
                     </button>
                   )}
                 </div>
@@ -1429,7 +1480,7 @@ function LiveCommunication() {
                       transition: "all 0.15s ease"
                     }}
                   >
-                    {simulations.noise ? "✓ Background Noise (-1.2 MOS)" : "+ Background Noise (-1.2 MOS)"}
+                    {simulations.noise ? "✓ Background Noise (inject noise)" : "+ Background Noise (inject noise)"}
                   </button>
 
                   <button
@@ -1448,7 +1499,7 @@ function LiveCommunication() {
                       transition: "all 0.15s ease"
                     }}
                   >
-                    {simulations.packetLoss ? "✓ 15% Packet Loss (-1.4 MOS)" : "+ 15% Packet Loss (-1.4 MOS)"}
+                    {simulations.packetLoss ? "✓ Packet Loss (drop audio bursts)" : "+ Packet Loss (drop audio bursts)"}
                   </button>
 
                   <button
@@ -1467,7 +1518,7 @@ function LiveCommunication() {
                       transition: "all 0.15s ease"
                     }}
                   >
-                    {simulations.clipping ? "✓ Mic Overload / Clip (-1.6 MOS)" : "+ Mic Overload / Clip (-1.6 MOS)"}
+                    {simulations.clipping ? "✓ Mic Overload (clip audio)" : "+ Mic Overload (clip audio)"}
                   </button>
 
                   <button
@@ -1486,7 +1537,7 @@ function LiveCommunication() {
                       transition: "all 0.15s ease"
                     }}
                   >
-                    {simulations.muffled ? "✓ Muffled / Low-Pass (-0.8 MOS)" : "+ Muffled / Low-Pass (-0.8 MOS)"}
+                    {simulations.muffled ? "✓ Muffled Voice (low-pass audio)" : "+ Muffled Voice (low-pass audio)"}
                   </button>
                 </div>
               </div>
