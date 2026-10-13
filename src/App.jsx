@@ -1,7 +1,15 @@
 import LiveCommunication from "./pages/LiveCommunication";
 import "./App.css";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [pathname]);
+  return null;
+}
 
 import Home from "./Home";
 import Planning from "./pages/planning";
@@ -416,6 +424,7 @@ function Architecture() {
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/project" element={<Project />} />

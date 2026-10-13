@@ -1001,8 +1001,22 @@ function LiveCommunication() {
     startRoomSignaling(cleaned, false);
   };
 
-  const leaveMeeting = () => {
-    stopRoomSignaling(meetingId);
+  const cleanupAudioResources = () => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    if (meetingId) {
+      fetch(`${API_BASE_URL}/api/meeting/leave`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingId, userId: userIdRef.current }),
+      }).catch(() => {});
+    }
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     if (demoSourceRef.current) {
       try {
@@ -1042,15 +1056,19 @@ function LiveCommunication() {
       systemStreamRef.current.getTracks().forEach((t) => t.stop());
       systemStreamRef.current = null;
     }
-    setIsSystemAudioActive(false);
     audioContextRef.current = null;
     analyserRef.current = null;
+  };
+
+  const leaveMeeting = () => {
+    cleanupAudioResources();
     setIsInMeeting(false);
     setMeetingId("");
     setMicEnabled(false);
     micEnabledRef.current = false;
     setIsTestTonePlaying(false);
     isTestTonePlayingRef.current = false;
+    setIsSystemAudioActive(false);
     setQualityTrend([]);
     lastSpeechTimeRef.current = 0;
     isScoreHeldRef.current = false;
@@ -1151,7 +1169,7 @@ function LiveCommunication() {
 
   useEffect(() => {
     return () => {
-      leaveMeeting();
+      cleanupAudioResources();
     };
   }, []);
 

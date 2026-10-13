@@ -3499,8 +3499,11 @@ a {
 }
 
 
-.inner-nav-links a:hover {
+.inner-nav-links a:hover,
+.inner-nav-links a.active {
   color: #69b7e8;
+  border-bottom: 2px solid #69b7e8;
+  padding-bottom: 4px;
 }
 
 
