@@ -1,152 +1,106 @@
-"""
-Export EdgeAudioNet to ONNX and perform Dynamic INT8 Quantization.
-Saves models directly to the React frontend public assets directory:
-  - EdgeAudio/public/models/edgeaudio_model.onnx (FP32)
-  - EdgeAudio/public/models/edgeaudio_model_int8.onnx (INT8 Quantized, ultra-compact < 500 KB)
-
-Includes verification testing comparing PyTorch output with ONNX Runtime WASM-compatible runtime.
-"""
-
 import os
-import sys
-import time
-
-# Ensure UTF-8 output encoding on Windows consoles
-if sys.platform == "win32":
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
-
-import numpy as np
 import torch
-import torch.nn as nn
+import numpy as np
 import onnx
 import onnxruntime as ort
-from onnxruntime.quantization import quantize_dynamic, QuantType
 
-from model import EdgeAudioNet
+from model import SpeechQualityModel
 
+def export_onnx(
+    checkpoint_path="project/models/best_model.pt",
+    output_onnx="project/web/model.onnx",
+    opset_version=17
+):
+    print("Loading PyTorch model checkpoint...")
+    model = SpeechQualityModel()
+    
+    if os.path.exists(checkpoint_path):
+        ckpt = torch.load(checkpoint_path, map_location="cpu")
+        model.load_state_dict(ckpt["model_state_dict"])
+        print(f"Loaded checkpoint from {checkpoint_path} (epoch {ckpt.get('epoch')}, PLCC {ckpt.get('val_plcc', 0.0):.4f})")
+    else:
+        print(f"Warning: {checkpoint_path} not found, exporting initialized model architecture...")
 
-class EdgeAudioNetExportWrapper(nn.Module):
-    """
-    Export wrapper that unwraps dict outputs into a tuple of tensors for clean ONNX graph compilation.
-    """
-    def __init__(self, model):
-        super().__init__()
-        self.model = model
-
-    def forward(self, x):
-        out = self.model(x)
-        return out["mos"], out["snr"], out["dropout_prob"], out["clip_prob"]
-
-
-def export_and_quantize():
-    base_dir = os.path.dirname(__file__)
-    checkpoint_path = os.path.join(base_dir, "checkpoints", "best_model.pth")
-    if not os.path.exists(checkpoint_path):
-        raise FileNotFoundError(f"Checkpoint not found at: {checkpoint_path}. Run train.py first.")
-
-    # Target output directory in React frontend
-    public_models_dir = os.path.abspath(
-        os.path.join(base_dir, "..", "EdgeAudio", "public", "models")
-    )
-    os.makedirs(public_models_dir, exist_ok=True)
-
-    fp32_onnx_path = os.path.join(public_models_dir, "edgeaudio_model.onnx")
-    int8_onnx_path = os.path.join(public_models_dir, "edgeaudio_model_int8.onnx")
-
-    print(f"--> Loading trained model weights from: {checkpoint_path}")
-    model = EdgeAudioNet()
-    checkpoint = torch.load(checkpoint_path, map_location="cpu")
-    model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
+    
+    # Fixed input shape [1, T=201, F=85]
+    dummy_input = torch.randn(1, 201, 85, dtype=torch.float32)
 
-    export_wrapper = EdgeAudioNetExportWrapper(model)
-    export_wrapper.eval()
+    os.makedirs(os.path.dirname(output_onnx), exist_ok=True)
+    temp_raw_onnx = output_onnx + ".raw"
 
-    # Dummy input: 1-second audio at 16 kHz: [Batch=1, Channel=1, Samples=16000]
-    dummy_input = torch.randn(1, 1, 16000, dtype=torch.float32)
-
-    # 1. Export FP32 ONNX using classic TorchScript exporter (dynamo=False)
-    print(f"--> Exporting PyTorch model to ONNX: {fp32_onnx_path} ...")
+    print(f"Exporting ONNX model to {temp_raw_onnx} (opset {opset_version})...")
     torch.onnx.export(
-        export_wrapper,
+        model,
         dummy_input,
-        fp32_onnx_path,
+        temp_raw_onnx,
         export_params=True,
-        opset_version=14,
+        opset_version=opset_version,
         do_constant_folding=True,
-        input_names=["input_audio"],
-        output_names=["mos", "snr", "dropout_prob", "clip_prob"],
-        dynamic_axes={
-            "input_audio": {0: "batch_size"},
-            "mos": {0: "batch_size"},
-            "snr": {0: "batch_size"},
-            "dropout_prob": {0: "batch_size"},
-            "clip_prob": {0: "batch_size"},
-        },
-        dynamo=False,
+        input_names=["features"],
+        output_names=["mos", "voice_prob", "diagnostics"],
+        dynamic_axes=None  # Fixed shape [1, 201, 85] as requested
     )
+    
+    # Load and save with save_as_external_data=False to guarantee single self-contained file
+    print("Packing all weights into a single standalone ONNX file...")
+    loaded_model = onnx.load(temp_raw_onnx, load_external_data=True)
+    onnx.save_model(loaded_model, output_onnx, save_as_external_data=False)
+    
+    # Clean up temp raw files
+    try:
+        if os.path.exists(temp_raw_onnx):
+            os.remove(temp_raw_onnx)
+        if os.path.exists(temp_raw_onnx + ".data"):
+            os.remove(temp_raw_onnx + ".data")
+        if os.path.exists(output_onnx + ".data"):
+            os.remove(output_onnx + ".data")
+    except Exception as e:
+        pass
 
-    # Verify ONNX model validity
-    onnx_model = onnx.load(fp32_onnx_path)
+    onnx_size_mb = os.path.getsize(output_onnx) / (1024 * 1024)
+    print(f"Final Single-File ONNX model size: {onnx_size_mb:.2f} MB")
+    
+    # Check ONNX model validity
+    onnx_model = onnx.load(output_onnx)
     onnx.checker.check_model(onnx_model)
-    fp32_size_kb = os.path.getsize(fp32_onnx_path) / 1024.0
-    print(f"    [OK] FP32 ONNX Model verified! Size: {fp32_size_kb:.1f} KB")
+    print("ONNX model checker passed successfully!")
 
-    # 2. Dynamic INT8 Quantization
-    print(f"--> Applying INT8 Dynamic Quantization: {int8_onnx_path} ...")
-    quantize_dynamic(
-        model_input=fp32_onnx_path,
-        model_output=int8_onnx_path,
-        weight_type=QuantType.QUInt8,
-    )
-    int8_size_kb = os.path.getsize(int8_onnx_path) / 1024.0
-    print(f"    [OK] Quantized INT8 Model saved! Size: {int8_size_kb:.1f} KB")
-    print(f"    Model compression factor: {fp32_size_kb / int8_size_kb:.2f}x reduction")
+    # Verify PyTorch vs ONNX output parity
+    session = ort.InferenceSession(output_onnx, providers=["CPUExecutionProvider"])
+    
+    test_inputs = [torch.randn(1, 201, 85, dtype=torch.float32) for _ in range(10)]
+    max_mos_diff = 0.0
+    max_vp_diff = 0.0
+    max_diag_diff = 0.0
 
-    # 3. Verification & Benchmark
-    print("\n--> Verifying ONNX Runtime numerical fidelity and latency...")
-    test_input = np.random.randn(1, 1, 16000).astype(np.float32)
+    for x in test_inputs:
+        with torch.no_grad():
+            py_mos, py_vp, py_diag = model(x)
+            
+        ort_outs = session.run(
+            None,
+            {"features": x.numpy()}
+        )
+        ort_mos, ort_vp, ort_diag = ort_outs
+        
+        max_mos_diff = max(max_mos_diff, float(np.max(np.abs(py_mos.numpy() - ort_mos))))
+        max_vp_diff = max(max_vp_diff, float(np.max(np.abs(py_vp.numpy() - ort_vp))))
+        max_diag_diff = max(max_diag_diff, float(np.max(np.abs(py_diag.numpy() - ort_diag))))
 
-    # PyTorch reference prediction
-    with torch.no_grad():
-        pt_mos, pt_snr, pt_drop, pt_clip = export_wrapper(torch.from_numpy(test_input))
-        pt_mos = pt_mos.numpy().item()
-        pt_snr = pt_snr.numpy().item()
+    print(f"PyTorch vs ONNX Parity Test:")
+    print(f"  Max MOS abs error:         {max_mos_diff:.6e} (Threshold: <1e-3)")
+    print(f"  Max Voice Prob abs error:  {max_vp_diff:.6e} (Threshold: <1e-3)")
+    print(f"  Max Diagnostics abs error: {max_diag_diff:.6e} (Threshold: <1e-3)")
+    assert max_mos_diff < 1e-3, f"MOS parity failed: {max_mos_diff}"
+    assert max_vp_diff < 1e-3, f"Voice prob parity failed: {max_vp_diff}"
+    assert max_diag_diff < 1e-3, f"Diagnostics parity failed: {max_diag_diff}"
+    print(">>> All PyTorch vs ONNX parity checks PASSED! <<<")
 
-    # ONNX Runtime FP32
-    session_fp32 = ort.InferenceSession(fp32_onnx_path, providers=["CPUExecutionProvider"])
-    onnx_fp32_out = session_fp32.run(None, {"input_audio": test_input})
-    ort_fp32_mos = onnx_fp32_out[0].item()
+    # Copy to project/models/model.onnx as well
+    import shutil
+    shutil.copyfile(output_onnx, "project/models/model.onnx")
+    print(f"Saved standalone model to project/models/model.onnx and {output_onnx}")
 
-    # ONNX Runtime INT8
-    session_int8 = ort.InferenceSession(int8_onnx_path, providers=["CPUExecutionProvider"])
-    onnx_int8_out = session_int8.run(None, {"input_audio": test_input})
-    ort_int8_mos = onnx_int8_out[0].item()
-    ort_int8_snr = onnx_int8_out[1].item()
-    ort_int8_drop = onnx_int8_out[2].item()
-    ort_int8_clip = onnx_int8_out[3].item()
-
-    # Latency test (100 iterations)
-    times = []
-    for _ in range(100):
-        t0 = time.perf_counter()
-        session_int8.run(None, {"input_audio": test_input})
-        times.append((time.perf_counter() - t0) * 1000.0)
-    avg_latency = np.mean(times)
-    p95_latency = np.percentile(times, 95)
-
-    print("--> Verification Results:")
-    print(f"    PyTorch reference MOS:  {pt_mos:.4f}")
-    print(f"    ONNX FP32 MOS:          {ort_fp32_mos:.4f} (diff: {abs(pt_mos - ort_fp32_mos):.5f})")
-    print(f"    ONNX INT8 MOS:          {ort_int8_mos:.4f} (diff: {abs(pt_mos - ort_int8_mos):.5f})")
-    print(f"    ONNX INT8 Est SNR:      {ort_int8_snr:.2f} dB")
-    print(f"    ONNX INT8 Dropout Prob: {ort_int8_drop:.3f}")
-    print(f"    ONNX INT8 Clip Prob:    {ort_int8_clip:.3f}")
-    print(f"    INT8 CPU Latency:       avg {avg_latency:.2f} ms | p95 {p95_latency:.2f} ms")
-    print("\n--> Model successfully packaged for client-side WebAssembly deployment!")
-
-
-if __name__ == "__main__":
-    export_and_quantize()
+if __name__ == '__main__':
+    export_onnx()

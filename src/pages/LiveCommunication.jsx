@@ -32,6 +32,9 @@ function LiveCommunication() {
     snr: 0,
     dropoutProb: 0.0,
     clipProb: 0.0,
+    muffleProb: 0.0,
+    windProb: 0.0,
+    voiceProb: 1.0,
   });
   const lastMlTimeRef = useRef(0);
 
@@ -148,7 +151,7 @@ function LiveCommunication() {
     } else if (calculatedMos !== null) {
       displayScore = calculatedMos.toFixed(1);
       statusNote = isActuallySpeaking
-        ? "Score computed by the on-device EdgeAudioNet model"
+        ? "Score computed by the on-device AudioModelCl neural model"
         : "Speech paused · Holding evaluated score (resumes on next word)";
       isSilent = !isActuallySpeaking;
       if (!isActuallySpeaking) {
@@ -176,9 +179,15 @@ function LiveCommunication() {
       ? `Injected Noise (SNR: ${snrVal} dB)`
       : isActuallySpeaking ? (snrVal < 16 ? `High Noise (SNR: ${snrVal} dB)` : `Clean Room (SNR: ${snrVal} dB)`) : `SNR estimate: ${snrVal} dB`;
     const noiseColor = (snrVal < 16 || simulations.noise) ? "#ef4444" : snrVal >= 25 ? "#10b981" : "#f59e0b";
-    const speechClarity = simulations.muffled
-      ? "Muffled (<850 Hz Cutoff)"
+    
+    const isMuffled = simulations.muffled || mlState.muffleProb > 0.45;
+    const isWindPuff = mlState.windProb > 0.40;
+    const speechClarity = isMuffled
+      ? `Muffled (${Math.round(Math.max(mlState.muffleProb, simulations.muffled ? 0.95 : 0.5) * 100)}% Cutoff)`
+      : isWindPuff
+      ? `Turbulent Wind (${Math.round(mlState.windProb * 100)}%)`
       : isActuallySpeaking ? "Full-Band Clarity" : canShowHeldScore ? "Formants Retained" : "Awaiting Voice";
+    const speechClarityColor = (isMuffled || isWindPuff) ? "#ef4444" : isActuallySpeaking ? "#10b981" : "#64748b";
 
     return {
       mosScore: calculatedMos,
@@ -475,6 +484,9 @@ function LiveCommunication() {
                   snr: res.snr,
                   dropoutProb: res.dropoutProb,
                   clipProb: res.clipProb,
+                  muffleProb: res.muffleProb ?? 0.0,
+                  windProb: res.windProb ?? 0.0,
+                  voiceProb: res.voiceProb ?? 1.0,
                   latencyMs: res.latencyMs,
                   isLoaded: true,
                   hasPrediction: true,
@@ -1698,7 +1710,7 @@ function LiveCommunication() {
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                   <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#ecfdf5", padding: "6px 12px", borderRadius: "14px", fontSize: "12px", fontWeight: "800", color: "#065f46", border: "1px solid #a7f3d0" }}>
                     <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: mlState.isLoaded ? "#10b981" : "#64748b", display: "inline-block" }}></span>
-                    {mlState.isLoaded ? `Neural ML Engine (EdgeAudioNet v2 INT8 · ${qcMetrics.latencyMs}ms)` : mlState.isLoading ? "Loading on-device ML model…" : "On-device ML model unavailable"}
+                    {mlState.isLoaded ? `Neural ML Engine (AudioModelCl SpeechQuality · ${qcMetrics.latencyMs}ms)` : mlState.isLoading ? "Loading on-device ML model…" : "On-device ML model unavailable"}
                   </div>
                 </div>
               </div>
@@ -1749,7 +1761,7 @@ function LiveCommunication() {
                   {/* Engine Details Footer */}
                   <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: "8px" }}>
                     <div style={{ fontSize: "11px", fontWeight: "800", color: "#38bdf8" }}>
-                      {"EdgeAudioNet v2"}
+                      {"SpeechQualityModel (AudioModelCl)"}
                     </div>
                     <div style={{ fontSize: "10px", color: "#94a3b8", display: "flex", justifyContent: "space-between", marginTop: "3px" }}>
                       <span>{qcMetrics.isSilent ? "VAD: Listening..." : `WASM: ${qcMetrics.latencyMs}ms`}</span>

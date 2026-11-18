@@ -1,156 +1,134 @@
-"""
-EdgeAudioNet: Lightweight 1D Convolutional Neural Network + GRU architecture
-designed for real-time speech quality (MOS) and acoustic degradation assessment.
-
-Input: Raw PCM audio waveform [B, 1, 16000] (1.0 second at 16 kHz, normalized [-1.0, 1.0]).
-Outputs:
-  - mos: Continuous MOS speech quality score in [1.0, 5.0]
-  - snr: Estimated Signal-to-Noise Ratio (dB)
-  - dropout_prob: Packet loss / burst dropout probability in [0.0, 1.0]
-  - clip_prob: Clipping / saturation distortion probability in [0.0, 1.0]
-"""
-
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
-
-class Conv1dBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, pool_size=2):
+class ConvBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=5, stride=1, dilation=1):
         super().__init__()
-        self.conv = nn.Conv1d(
-            in_channels,
-            out_channels,
+        # Depthwise separable convolution
+        padding = ((kernel_size - 1) * dilation) // 2
+        self.depthwise = nn.Conv1d(
+            in_channels, in_channels,
             kernel_size=kernel_size,
             stride=stride,
             padding=padding,
+            dilation=dilation,
+            groups=in_channels,
             bias=False
         )
+        self.pointwise = nn.Conv1d(in_channels, out_channels, kernel_size=1, bias=False)
         self.bn = nn.BatchNorm1d(out_channels)
-        self.act = nn.LeakyReLU(0.1, inplace=True)
-        self.pool = nn.MaxPool1d(pool_size, stride=pool_size) if pool_size > 1 else nn.Identity()
+        self.act = nn.GELU()
 
     def forward(self, x):
-        x = self.conv(x)
-        x = self.bn(x)
-        x = self.act(x)
-        x = self.pool(x)
-        return x
+        # Inverted residual skip connection
+        return x + self.act(self.bn(self.pointwise(self.depthwise(x))))
 
-
-class EdgeAudioNet(nn.Module):
+class SpeechQualityModel(nn.Module):
     """
-    Ultra-lightweight edge neural network for zero-STFT raw PCM audio quality assessment.
-    Parameter count: ~150,000 (~600 KB FP32, ~200 KB INT8 quantized).
-    Inference latency: <10ms on CPU/WASM.
+    Tiny in-browser Speech Quality Estimator.
+    Input: [B, T=201, F=85]
+    Outputs:
+      1. mos in [0.0, 5.0]
+      2. voice_prob in [0.0, 1.0]
+      3. diagnostics in [0.0, 1.0] x 5 (noise, clipping, muffled, dropouts, wind)
+    Budget: ~584k parameters (~2.23 MB FP32), <25ms CPU inference.
     """
-    def __init__(self):
+    def __init__(self, n_features=85, conv_dim=160, gru_dim=160, n_gru_layers=2):
         super().__init__()
+        self.n_features = n_features
+        self.conv_dim = conv_dim
+        self.gru_dim = gru_dim
 
-        # Front-end 1D Conv feature extraction:
-        # [B, 1, 16000] -> [B, 32, 1000] -> pool(2) -> [B, 32, 500]
-        self.block1 = Conv1dBlock(
-            in_channels=1,
-            out_channels=32,
-            kernel_size=64,
-            stride=16,
-            padding=32,
-            pool_size=2
-        )
+        # Input feature projection
+        self.in_proj = nn.Conv1d(n_features, conv_dim, kernel_size=1, bias=False)
+        self.in_bn = nn.BatchNorm1d(conv_dim)
+        self.act = nn.GELU()
 
-        # [B, 32, 500] -> [B, 64, 125] -> pool(2) -> [B, 64, 62]
-        self.block2 = Conv1dBlock(
-            in_channels=32,
-            out_channels=64,
-            kernel_size=16,
-            stride=4,
-            padding=8,
-            pool_size=2
-        )
+        # Depthwise separable CNN front end with residual connections
+        self.conv_blocks = nn.ModuleList([
+            ConvBlock(conv_dim, conv_dim, kernel_size=5, dilation=1),
+            ConvBlock(conv_dim, conv_dim, kernel_size=5, dilation=2),
+            ConvBlock(conv_dim, conv_dim, kernel_size=5, dilation=4),
+            ConvBlock(conv_dim, conv_dim, kernel_size=5, dilation=1),
+        ])
 
-        # [B, 64, 62] -> [B, 96, 31]
-        self.block3 = Conv1dBlock(
-            in_channels=64,
-            out_channels=96,
-            kernel_size=7,
-            stride=2,
-            padding=3,
-            pool_size=1
-        )
-
-        # Temporal sequence modeling via Bidirectional GRU
+        # Sequence modeling: 2-layer GRU
         self.gru = nn.GRU(
-            input_size=96,
-            hidden_size=48,
-            num_layers=1,
+            input_size=conv_dim,
+            hidden_size=gru_dim,
+            num_layers=n_gru_layers,
             batch_first=True,
-            bidirectional=True
-        )  # Output features: 48 * 2 = 96
-
-        # Shared embedding dense layer
-        self.shared_dense = nn.Sequential(
-            nn.Linear(96, 64),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.2)
+            bidirectional=False
         )
 
-        # Prediction Heads
-        # 1. MOS Head (bounded [1.0, 5.0])
-        self.mos_fc = nn.Linear(64, 1)
+        # Statistical multi-resolution pooling (Mean + Std + Min + Max)
+        # Directly captures temporal dropouts, clipping saturation, and speech continuity
+        # without softmax attention blind spots
+        pooled_dim = gru_dim * 4  # 160 * 4 = 640
 
-        # 2. SNR Head (predicted SNR in dB)
-        self.snr_fc = nn.Linear(64, 1)
+        # Dedicated Task Heads
+        self.mos_head = nn.Sequential(
+            nn.Linear(pooled_dim, 96),
+            nn.GELU(),
+            nn.Dropout(0.15),
+            nn.Linear(96, 1)
+        )
+        nn.init.constant_(self.mos_head[-1].bias, 3.5)
 
-        # 3. Dropout / Packet Loss Head (probability in [0.0, 1.0])
-        self.dropout_fc = nn.Linear(64, 1)
+        self.voice_head = nn.Sequential(
+            nn.Linear(pooled_dim, 48),
+            nn.GELU(),
+            nn.Dropout(0.15),
+            nn.Linear(48, 1)
+        )
+        nn.init.constant_(self.voice_head[-1].bias, 0.0)
 
-        # 4. Clipping Head (probability in [0.0, 1.0])
-        self.clip_fc = nn.Linear(64, 1)
+        self.diag_head = nn.Sequential(
+            nn.Linear(pooled_dim, 96),
+            nn.GELU(),
+            nn.Dropout(0.15),
+            nn.Linear(96, 5)
+        )
+        nn.init.constant_(self.diag_head[-1].bias, -1.5)
 
     def forward(self, x):
-        # Expected input shape: [B, 1, 16000]
-        if x.dim() == 2:
-            x = x.unsqueeze(1)
+        # x: (B, T, F)
+        # Permute to (B, F, T) for 1D conv
+        h = x.transpose(1, 2)
+        h = self.act(self.in_bn(self.in_proj(h)))
+        
+        for block in self.conv_blocks:
+            h = block(h)
 
-        # 1D Convolutional feature pyramid
-        x = self.block1(x)
-        x = self.block2(x)
-        x = self.block3(x)  # [B, 96, T]
+        # Back to (B, T, C) for GRU
+        h = h.transpose(1, 2)
+        gru_out, _ = self.gru(h)  # (B, T, gru_dim)
 
-        # Reshape to [B, T, 96] for GRU
-        x = x.transpose(1, 2)
-        gru_out, _ = self.gru(x)  # [B, T, 96]
+        # Multi-resolution statistical pooling
+        mean_stat = torch.mean(gru_out, dim=1)
+        std_stat = torch.std(gru_out, dim=1, unbiased=False)
+        min_stat = torch.min(gru_out, dim=1).values
+        max_stat = torch.max(gru_out, dim=1).values
+        pooled = torch.cat([mean_stat, std_stat, min_stat, max_stat], dim=-1)  # (B, 640)
 
-        # Temporal Global Average Pooling
-        pooled = torch.mean(gru_out, dim=1)  # [B, 96]
+        # Heads
+        mos = torch.clamp(self.mos_head(pooled), 0.0, 5.0)
+        voice_prob = torch.sigmoid(self.voice_head(pooled))
+        diagnostics = torch.sigmoid(self.diag_head(pooled))
 
-        # Shared feature representation
-        feat = self.shared_dense(pooled)  # [B, 64]
+        return mos, voice_prob, diagnostics
 
-        # Multi-task predictions
-        # MOS: 1.0 + 4.0 * Sigmoid -> [1.0, 5.0]
-        mos = 1.0 + 4.0 * torch.sigmoid(self.mos_fc(feat))
+def get_model():
+    model = SpeechQualityModel()
+    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"SpeechQualityModel parameters: {n_params:,} (~{n_params * 4 / (1024*1024):.2f} MB fp32)")
+    return model
 
-        # SNR: linear regression (dB)
-        snr = self.snr_fc(feat)
-
-        # Dropout & Clipping: sigmoid probabilities
-        dropout_prob = torch.sigmoid(self.dropout_fc(feat))
-        clip_prob = torch.sigmoid(self.clip_fc(feat))
-
-        return {
-            "mos": mos,
-            "snr": snr,
-            "dropout_prob": dropout_prob,
-            "clip_prob": clip_prob
-        }
-
-
-if __name__ == "__main__":
-    model = EdgeAudioNet()
-    dummy_input = torch.randn(2, 1, 16000)
-    outputs = model(dummy_input)
-    print("EdgeAudioNet initialized successfully.")
-    for k, v in outputs.items():
-        print(f"  {k}: shape {v.shape}, sample value {v[0].item():.3f}")
-    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Total trainable parameters: {total_params:,}")
+if __name__ == '__main__':
+    model = get_model()
+    dummy = torch.randn(2, 201, 85)
+    mos, vp, diag = model(dummy)
+    print("MOS shape:", mos.shape, "range:", mos.min().item(), mos.max().item())
+    print("Voice prob shape:", vp.shape, "range:", vp.min().item(), vp.max().item())
+    print("Diagnostics shape:", diag.shape, "range:", diag.min().item(), diag.max().item())
