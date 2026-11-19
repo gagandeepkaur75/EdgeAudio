@@ -1186,11 +1186,11 @@ function LiveCommunication() {
       {/* Hidden audio element for receiving peer audio stream */}
       <audio ref={remoteAudioRef} autoPlay style={{ display: "none" }} />
 
-      <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "16px 20px 40px", boxSizing: "border-box" }}>
+      <main style={{ maxWidth: "1520px", margin: "0 auto", padding: "36px 40px 80px", boxSizing: "border-box" }}>
 
         {/* ERROR / WARNING BANNER */}
         {errorMessage && (
-          <div className="live-error" style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+          <div className="live-error" style={{ marginBottom: "24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", padding: "16px 22px", borderRadius: "12px", fontSize: "15px" }}>
             <span>⚠️ {errorMessage}</span>
             <button
               type="button"
@@ -1199,9 +1199,9 @@ function LiveCommunication() {
                 background: isTestTonePlaying ? "#ef4444" : "#07162d",
                 color: "#ffffff",
                 border: "none",
-                padding: "6px 14px",
-                borderRadius: "6px",
-                fontSize: "12px",
+                padding: "8px 18px",
+                borderRadius: "8px",
+                fontSize: "14px",
                 fontWeight: "700",
                 cursor: "pointer"
               }}
@@ -1218,49 +1218,49 @@ function LiveCommunication() {
           /* SLIM TOP TOOLBAR: STATUS, PARTICIPANTS, CONTROLS */
           <section style={{
             background: "#ffffff",
-            border: "1px solid #cbd5e1",
-            borderRadius: "12px",
-            padding: "12px 18px",
+            border: "1.5px solid #e2e8f0",
+            borderRadius: "16px",
+            padding: "18px 24px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             flexWrap: "wrap",
-            gap: "12px",
-            marginBottom: "14px",
-            boxShadow: "0 2px 6px rgba(7, 22, 45, 0.04)"
+            gap: "16px",
+            marginBottom: "24px",
+            boxShadow: "0 4px 16px rgba(7, 22, 45, 0.04)"
           }}>
             {/* Left: Status & ID */}
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
               <span style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "6px",
-                background: peerCount > 1 ? "#ecfdf5" : "#edf7fb",
-                color: peerCount > 1 ? "#065f46" : "#0369a1",
-                fontSize: "12px",
+                gap: "8px",
+                background: peerCount > 1 ? "#ecfdf5" : "#eff6ff",
+                color: peerCount > 1 ? "#065f46" : "#1d4ed8",
+                fontSize: "14px",
                 fontWeight: "800",
-                padding: "5px 10px",
-                borderRadius: "12px",
-                border: `1px solid ${peerCount > 1 ? "#a7f3d0" : "#bae6fd"}`
+                padding: "8px 16px",
+                borderRadius: "9999px",
+                border: `1px solid ${peerCount > 1 ? "#a7f3d0" : "#dbeafe"}`
               }}>
-                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: peerCount > 1 ? "#10b981" : "#0284c7" }}></span>
-                {peerCount > 1 ? `🟢 ACTIVE CALL (${peerCount} USERS IN CALL)` : "STANDALONE QC SESSION"}
+                <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: peerCount > 1 ? "#10b981" : "#2563eb" }}></span>
+                {peerCount > 1 ? `🟢 ACTIVE CALL (${peerCount} IN CALL)` : "STANDALONE QC SESSION"}
               </span>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#07162d", color: "#ffffff", padding: "5px 12px", borderRadius: "8px", fontSize: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#0f172a", color: "#ffffff", padding: "8px 16px", borderRadius: "10px", fontSize: "14px" }}>
                 <span style={{ color: "#94a3b8" }}>Room:</span>
-                <strong>{meetingId}</strong>
+                <strong style={{ letterSpacing: "1px" }}>{meetingId}</strong>
                 <button
                   type="button"
                   onClick={copyMeetingId}
-                  style={{ background: "transparent", border: "none", color: "#38bdf8", cursor: "pointer", fontSize: "11px", fontWeight: "700", marginLeft: "4px" }}
+                  style={{ background: "transparent", border: "none", color: "#38bdf8", cursor: "pointer", fontSize: "13px", fontWeight: "700", marginLeft: "6px" }}
                 >
                   {copied ? "✓ Copied" : "Copy Code"}
                 </button>
                 <button
                   type="button"
                   onClick={copyInviteLink}
-                  style={{ background: "#0369a1", border: "none", color: "#ffffff", cursor: "pointer", fontSize: "11px", fontWeight: "700", padding: "2px 8px", borderRadius: "4px", marginLeft: "4px" }}
+                  style={{ background: "#2563eb", border: "none", color: "#ffffff", cursor: "pointer", fontSize: "13px", fontWeight: "700", padding: "4px 12px", borderRadius: "6px", marginLeft: "6px" }}
                 >
                   {copiedLink ? "✓ Link Copied!" : "🔗 Share Link"}
                 </button>
@@ -1268,29 +1268,29 @@ function LiveCommunication() {
             </div>
 
             {/* Middle: Live Mic & Voice Status & VU Bar */}
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" }}>
               <div style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "8px",
-                background: "#f1f5f9",
-                border: `1px solid ${isVoiceActive ? "#10b981" : "#cbd5e1"}`,
-                padding: "5px 12px",
-                borderRadius: "8px"
+                gap: "10px",
+                background: "#f8fafc",
+                border: `1.5px solid ${isVoiceActive ? "#10b981" : "#cbd5e1"}`,
+                padding: "8px 16px",
+                borderRadius: "10px"
               }}>
-                <span style={{ fontSize: "15px" }}>{micEnabled ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
+                <span style={{ fontSize: "18px" }}>{micEnabled ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <span style={{ fontSize: "11px", fontWeight: "800", color: "#07162d" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontSize: "13px", fontWeight: "800", color: "#0f172a" }}>
                       {micEnabled ? (isVoiceActive ? "Voice Active" : "Mic Open (Quiet)") : "Muted"}
                     </span>
-                    <span style={{ fontSize: "10px", color: isVoiceActive ? "#10b981" : "#64748b", fontWeight: "700" }}>
+                    <span style={{ fontSize: "12px", color: isVoiceActive ? "#10b981" : "#64748b", fontWeight: "700" }}>
                       {liveDb} dBFS
                     </span>
                   </div>
 
                   {/* Animated Volume Meter */}
-                  <div style={{ width: "90px", height: "4px", background: "#cbd5e1", borderRadius: "2px", overflow: "hidden", marginTop: "2px" }}>
+                  <div style={{ width: "110px", height: "5px", background: "#cbd5e1", borderRadius: "3px", overflow: "hidden", marginTop: "3px" }}>
                     <div style={{
                       width: `${volumePercent}%`,
                       height: "100%",
@@ -1305,12 +1305,12 @@ function LiveCommunication() {
               <div style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "6px",
+                gap: "8px",
                 background: peerCount > 1 ? "#ecfdf5" : "#f8fafc",
-                border: `1px solid ${peerCount > 1 ? "#a7f3d0" : "#e2e8f0"}`,
-                padding: "5px 12px",
-                borderRadius: "8px",
-                fontSize: "11px",
+                border: `1.5px solid ${peerCount > 1 ? "#a7f3d0" : "#e2e8f0"}`,
+                padding: "8px 16px",
+                borderRadius: "10px",
+                fontSize: "13px",
                 color: peerCount > 1 ? "#065f46" : "#64748b",
                 fontWeight: "700"
               }}>
@@ -1319,17 +1319,17 @@ function LiveCommunication() {
               </div>
 
               {/* Voice Selection & Playback */}
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
                 <select
                   value={selectedDemoVoice}
                   onChange={(e) => handleVoiceChange(e.target.value)}
                   style={{
                     background: "#ffffff",
                     color: "#0f172a",
-                    border: "1px solid #cbd5e1",
-                    padding: "5px 8px",
-                    borderRadius: "6px",
-                    fontSize: "11px",
+                    border: "1.5px solid #cbd5e1",
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
                     fontWeight: "600",
                     cursor: "pointer",
                     outline: "none"
@@ -1346,12 +1346,12 @@ function LiveCommunication() {
                   type="button"
                   onClick={toggleTestTone}
                   style={{
-                    background: isTestTonePlaying ? "#ef4444" : "#edf7fb",
-                    color: isTestTonePlaying ? "#ffffff" : "#0369a1",
-                    border: `1px solid ${isTestTonePlaying ? "#ef4444" : "#bae6fd"}`,
-                    padding: "5px 10px",
-                    borderRadius: "6px",
-                    fontSize: "11px",
+                    background: isTestTonePlaying ? "#ef4444" : "#eff6ff",
+                    color: isTestTonePlaying ? "#ffffff" : "#1d4ed8",
+                    border: `1.5px solid ${isTestTonePlaying ? "#ef4444" : "#bfdbfe"}`,
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
                     fontWeight: "700",
                     cursor: "pointer"
                   }}
@@ -1367,10 +1367,10 @@ function LiveCommunication() {
                 style={{
                   background: isSystemAudioActive ? "#dc2626" : "#f0fdf4",
                   color: isSystemAudioActive ? "#ffffff" : "#166534",
-                  border: `1px solid ${isSystemAudioActive ? "#b91c1c" : "#bbf7d0"}`,
-                  padding: "5px 10px",
-                  borderRadius: "6px",
-                  fontSize: "11px",
+                  border: `1.5px solid ${isSystemAudioActive ? "#b91c1c" : "#bbf7d0"}`,
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  fontSize: "13px",
                   fontWeight: "700",
                   cursor: "pointer"
                 }}
@@ -1381,17 +1381,17 @@ function LiveCommunication() {
             </div>
 
             {/* Right: Controls */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <button
                 type="button"
                 onClick={toggleMicrophone}
                 style={{
-                  background: micEnabled ? "#07162d" : "#ef4444",
+                  background: micEnabled ? "#0f172a" : "#ef4444",
                   color: "#ffffff",
                   border: "none",
-                  padding: "7px 14px",
-                  borderRadius: "6px",
-                  fontSize: "12px",
+                  padding: "10px 18px",
+                  borderRadius: "8px",
+                  fontSize: "14px",
                   fontWeight: "700",
                   cursor: "pointer"
                 }}
@@ -1405,10 +1405,10 @@ function LiveCommunication() {
                 style={{
                   background: "#fee2e2",
                   color: "#b91c1c",
-                  border: "1px solid #fecaca",
-                  padding: "7px 14px",
-                  borderRadius: "6px",
-                  fontSize: "12px",
+                  border: "1.5px solid #fecaca",
+                  padding: "10px 18px",
+                  borderRadius: "8px",
+                  fontSize: "14px",
                   fontWeight: "700",
                   cursor: "pointer"
                 }}
@@ -1419,13 +1419,13 @@ function LiveCommunication() {
           </section>
         ) : (
           /* BEFORE JOINING / STANDALONE SESSION CONTROLS */
-          <div style={{ marginBottom: "14px" }}>
-            <div style={{ textAlign: "center", padding: "10px 0 16px" }}>
-              <div className="live-label" style={{ marginBottom: "8px" }}>06 — PROTOTYPE DEMO</div>
-              <h1 style={{ color: "#07162d", fontSize: "32px", margin: "0 0 8px" }}>
+          <div style={{ marginBottom: "28px" }}>
+            <div style={{ textAlign: "center", padding: "16px 0 28px" }}>
+              <div className="live-label" style={{ marginBottom: "14px", fontSize: "14px", padding: "8px 20px" }}>06 — PROTOTYPE DEMO</div>
+              <h1 style={{ color: "#0f172a", fontSize: "clamp(38px, 4.5vw, 56px)", margin: "0 0 14px", fontWeight: "800", letterSpacing: "-1px" }}>
                 EdgeAudio-QC Live Communication
               </h1>
-              <p style={{ color: "#55748a", maxWidth: "760px", margin: "0 auto", fontSize: "14px", lineHeight: "1.5" }}>
+              <p style={{ color: "#64748b", maxWidth: "900px", margin: "0 auto", fontSize: "20px", lineHeight: "1.7" }}>
                 Real-time on-device speech quality estimator. Speak into your microphone or play the studio demo voice to evaluate live MOS scores and simulate acoustic conditions.
               </p>
             </div>
@@ -1434,22 +1434,22 @@ function LiveCommunication() {
             {urlParamMeetingId && (
               <div style={{
                 maxWidth: "100%",
-                margin: "0 0 16px",
+                margin: "0 0 20px",
                 background: "#ecfdf5",
                 border: "2px solid #10b981",
-                borderRadius: "12px",
-                padding: "12px 18px",
+                borderRadius: "14px",
+                padding: "16px 24px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 flexWrap: "wrap",
-                gap: "10px",
-                boxShadow: "0 4px 12px rgba(16, 185, 129, 0.1)"
+                gap: "14px",
+                boxShadow: "0 4px 14px rgba(16, 185, 129, 0.12)"
               }}>
                 <div>
-                  <span style={{ fontSize: "11px", fontWeight: "800", color: "#047857", textTransform: "uppercase" }}>Room Invitation</span>
-                  <div style={{ fontSize: "15px", fontWeight: "800", color: "#065f46" }}>
-                    You have been invited to call: <span style={{ color: "#07162d" }}>{urlParamMeetingId.toUpperCase()}</span>
+                  <span style={{ fontSize: "12px", fontWeight: "800", color: "#047857", textTransform: "uppercase", letterSpacing: "1px" }}>Room Invitation</span>
+                  <div style={{ fontSize: "18px", fontWeight: "800", color: "#065f46" }}>
+                    You have been invited to call: <span style={{ color: "#0f172a" }}>{urlParamMeetingId.toUpperCase()}</span>
                   </div>
                 </div>
                 <button
@@ -1459,9 +1459,9 @@ function LiveCommunication() {
                     background: "#10b981",
                     color: "#ffffff",
                     border: "none",
-                    padding: "8px 18px",
-                    borderRadius: "8px",
-                    fontSize: "13px",
+                    padding: "12px 24px",
+                    borderRadius: "10px",
+                    fontSize: "15px",
                     fontWeight: "800",
                     cursor: "pointer"
                   }}
@@ -1474,50 +1474,51 @@ function LiveCommunication() {
             {/* STANDALONE ACTION BAR: AUDIO CONTROLS + CALL CREATION */}
             <section style={{
               background: "#ffffff",
-              border: "1px solid #cbd5e1",
-              borderRadius: "12px",
-              padding: "12px 18px",
+              border: "1.5px solid #e2e8f0",
+              borderRadius: "16px",
+              padding: "18px 24px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               flexWrap: "wrap",
-              gap: "12px",
-              boxShadow: "0 2px 6px rgba(7, 22, 45, 0.04)"
+              gap: "16px",
+              boxShadow: "0 4px 16px rgba(7, 22, 45, 0.04)"
             }}>
               {/* Left: Direct Microphone & Demo Voice Toggles */}
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                 <button
                   type="button"
                   onClick={micEnabled ? toggleMicrophone : requestMicrophone}
                   style={{
-                    background: micEnabled ? "#07162d" : "#0284c7",
+                    background: micEnabled ? "#0f172a" : "#2563eb",
                     color: "#ffffff",
                     border: "none",
-                    padding: "8px 16px",
-                    borderRadius: "8px",
-                    fontSize: "12px",
+                    padding: "12px 22px",
+                    borderRadius: "10px",
+                    fontSize: "15px",
                     fontWeight: "700",
                     cursor: "pointer",
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: "6px"
+                    gap: "8px",
+                    boxShadow: micEnabled ? "none" : "0 4px 12px rgba(37, 99, 235, 0.25)"
                   }}
                 >
                   <span>{micEnabled ? "🔇 Mute Microphone" : "🎙️ Enable Microphone"}</span>
                 </button>
 
                 {/* Voice Selection & Playback */}
-                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
                   <select
                     value={selectedDemoVoice}
                     onChange={(e) => handleVoiceChange(e.target.value)}
                     style={{
                       background: "#f8fafc",
                       color: "#0f172a",
-                      border: "1px solid #cbd5e1",
-                      padding: "8px 10px",
-                      borderRadius: "8px",
-                      fontSize: "12px",
+                      border: "1.5px solid #cbd5e1",
+                      padding: "11px 16px",
+                      borderRadius: "10px",
+                      fontSize: "15px",
                       fontWeight: "600",
                       cursor: "pointer",
                       outline: "none"
@@ -1534,12 +1535,12 @@ function LiveCommunication() {
                     type="button"
                     onClick={toggleTestTone}
                     style={{
-                      background: isTestTonePlaying ? "#ef4444" : "#edf7fb",
-                      color: isTestTonePlaying ? "#ffffff" : "#0369a1",
-                      border: `1px solid ${isTestTonePlaying ? "#ef4444" : "#bae6fd"}`,
-                      padding: "8px 14px",
-                      borderRadius: "8px",
-                      fontSize: "12px",
+                      background: isTestTonePlaying ? "#ef4444" : "#eff6ff",
+                      color: isTestTonePlaying ? "#ffffff" : "#1d4ed8",
+                      border: `1.5px solid ${isTestTonePlaying ? "#ef4444" : "#bfdbfe"}`,
+                      padding: "11px 20px",
+                      borderRadius: "10px",
+                      fontSize: "15px",
                       fontWeight: "700",
                       cursor: "pointer"
                     }}
@@ -1563,15 +1564,15 @@ function LiveCommunication() {
                   style={{
                     background: isSystemAudioActive ? "#dc2626" : "#f0fdf4",
                     color: isSystemAudioActive ? "#ffffff" : "#166534",
-                    border: `1px solid ${isSystemAudioActive ? "#b91c1c" : "#bbf7d0"}`,
-                    padding: "8px 14px",
-                    borderRadius: "8px",
-                    fontSize: "12px",
+                    border: `1.5px solid ${isSystemAudioActive ? "#b91c1c" : "#bbf7d0"}`,
+                    padding: "11px 20px",
+                    borderRadius: "10px",
+                    fontSize: "15px",
                     fontWeight: "700",
                     cursor: "pointer",
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: "6px"
+                    gap: "8px"
                   }}
                   title="Capture and score audio from YouTube, Spotify, MP3 files, or desktop video calls"
                 >
@@ -1582,30 +1583,30 @@ function LiveCommunication() {
                 <div style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
-                  background: "#f1f5f9",
-                  border: `1px solid ${isVoiceActive ? "#10b981" : "#cbd5e1"}`,
-                  padding: "5px 12px",
-                  borderRadius: "8px"
+                  gap: "10px",
+                  background: "#f8fafc",
+                  border: `1.5px solid ${isVoiceActive ? "#10b981" : "#cbd5e1"}`,
+                  padding: "8px 16px",
+                  borderRadius: "10px"
                 }}>
-                  <span style={{ fontSize: "14px" }}>{audioInputActive ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
+                  <span style={{ fontSize: "17px" }}>{audioInputActive ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
                   <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "11px", fontWeight: "800", color: "#07162d" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "13px", fontWeight: "800", color: "#0f172a" }}>
                         {isTestTonePlaying
                           ? "Voice Sample Playing"
                           : isSystemAudioActive
                             ? (isVoiceActive ? "🖥️ PC Audio Active" : "🖥️ PC Audio (Idle)")
                             : micEnabled
-                              ? (isVoiceActive ? "Voice Active" : "Mic Open (Shared Call Monitoring)")
+                              ? (isVoiceActive ? "Voice Active" : "Mic Open (Shared Monitoring)")
                               : "Mic Idle"}
                       </span>
-                      <span style={{ fontSize: "10px", color: isVoiceActive ? "#10b981" : "#64748b", fontWeight: "700" }}>
+                      <span style={{ fontSize: "12px", color: isVoiceActive ? "#10b981" : "#64748b", fontWeight: "700" }}>
                         {liveDb} dBFS
                       </span>
                     </div>
                     {audioInputActive && (
-                      <div style={{ width: "80px", height: "4px", background: "#cbd5e1", borderRadius: "2px", overflow: "hidden", marginTop: "2px" }}>
+                      <div style={{ width: "100px", height: "5px", background: "#cbd5e1", borderRadius: "3px", overflow: "hidden", marginTop: "3px" }}>
                         <div style={{
                           width: `${volumePercent}%`,
                           height: "100%",
@@ -1619,36 +1620,37 @@ function LiveCommunication() {
               </div>
 
               {/* Right: WebRTC Meeting Room Connect */}
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                 <button
                   type="button"
                   onClick={createMeeting}
                   style={{
-                    background: "#0f766e",
+                    background: "#2563eb",
                     color: "#ffffff",
                     border: "none",
-                    padding: "8px 15px",
-                    borderRadius: "8px",
-                    fontSize: "12px",
+                    padding: "11px 20px",
+                    borderRadius: "10px",
+                    fontSize: "15px",
                     fontWeight: "700",
-                    cursor: "pointer"
+                    cursor: "pointer",
+                    boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)"
                   }}
                 >
                   + Create Call Room
                 </button>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                   <input
                     type="text"
                     value={inputMeetingId}
                     onChange={(e) => setInputMeetingId(e.target.value)}
                     placeholder="Enter Room ID"
                     style={{
-                      padding: "6px 10px",
-                      borderRadius: "6px",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "12px",
-                      width: "120px",
+                      padding: "10px 14px",
+                      borderRadius: "10px",
+                      border: "1.5px solid #cbd5e1",
+                      fontSize: "15px",
+                      width: "150px",
                       textTransform: "uppercase"
                     }}
                   />
@@ -1656,12 +1658,12 @@ function LiveCommunication() {
                     type="button"
                     onClick={() => joinMeeting()}
                     style={{
-                      background: "#07162d",
+                      background: "#0f172a",
                       color: "#ffffff",
                       border: "none",
-                      padding: "6px 12px",
-                      borderRadius: "6px",
-                      fontSize: "12px",
+                      padding: "11px 18px",
+                      borderRadius: "10px",
+                      fontSize: "15px",
                       fontWeight: "700",
                       cursor: "pointer"
                     }}
@@ -1679,79 +1681,79 @@ function LiveCommunication() {
             ================================================= */}
             <section style={{
               background: "#ffffff",
-              border: "1px solid #c8e1ec",
-              borderRadius: "14px",
-              padding: "20px 24px",
-              boxShadow: "0 4px 12px rgba(7, 22, 45, 0.04)"
+              border: "1.5px solid #e2e8f0",
+              borderRadius: "20px",
+              padding: "36px 44px",
+              boxShadow: "0 6px 24px rgba(7, 22, 45, 0.05)"
             }}>
               {/* Dashboard Title */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px", marginBottom: "14px", borderBottom: "1px solid #f1f5f9", paddingBottom: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "20px", borderBottom: "2px solid #f1f5f9", paddingBottom: "16px" }}>
                 <div>
-                  <span style={{ fontSize: "11px", fontWeight: "800", color: "#286987", letterSpacing: "1px", textTransform: "uppercase" }}>
+                  <span style={{ fontSize: "13px", fontWeight: "800", color: "#2563eb", letterSpacing: "1.5px", textTransform: "uppercase" }}>
                     SLIDE 10 SPECIFICATION
                   </span>
-                  <h2 style={{ margin: "2px 0 0", color: "#07162d", fontSize: "22px" }}>
+                  <h2 style={{ margin: "4px 0 0", color: "#0f172a", fontSize: "30px", fontWeight: "800", letterSpacing: "-0.5px" }}>
                     Live Speech Quality Report
                   </h2>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#ecfdf5", padding: "6px 12px", borderRadius: "14px", fontSize: "12px", fontWeight: "800", color: "#065f46", border: "1px solid #a7f3d0" }}>
-                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: mlState.isLoaded ? "#10b981" : "#64748b", display: "inline-block" }}></span>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#ecfdf5", padding: "8px 18px", borderRadius: "9999px", fontSize: "14px", fontWeight: "800", color: "#065f46", border: "1px solid #a7f3d0" }}>
+                    <span style={{ width: "9px", height: "9px", borderRadius: "50%", background: mlState.isLoaded ? "#10b981" : "#64748b", display: "inline-block" }}></span>
                     {mlState.isLoaded ? `Neural ML Engine (EdgeAudioNet v2 INT8 · ${qcMetrics.latencyMs}ms)` : mlState.isLoading ? "Loading on-device ML model…" : "On-device ML model unavailable"}
                   </div>
                 </div>
               </div>
 
               {/* METRICS GRID: Overall Score + 4 Diagnostic Dials */}
-              <div style={{ display: "grid", gridTemplateColumns: "250px 1fr", gap: "16px", alignItems: "stretch" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: "24px", alignItems: "stretch" }}>
 
                 {/* OVERALL MOS CARD */}
                 <div style={{
-                  background: "#07162d",
+                  background: "#0f172a",
                   color: "#ffffff",
-                  borderRadius: "12px",
-                  padding: "18px",
+                  borderRadius: "18px",
+                  padding: "32px 28px",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
-                  boxShadow: "0 4px 12px rgba(7, 22, 45, 0.08)"
+                  boxShadow: "0 6px 20px rgba(15, 23, 42, 0.15)"
                 }}>
                   <div>
-                    <span style={{ fontSize: "11px", fontWeight: "800", letterSpacing: "1.2px", color: qcMetrics.isSilent && qcMetrics.mosDisplay === "—" ? "#94a3b8" : "#7dd3fc" }}>
+                    <span style={{ fontSize: "13px", fontWeight: "800", letterSpacing: "1.5px", color: qcMetrics.isSilent && qcMetrics.mosDisplay === "—" ? "#94a3b8" : "#38bdf8" }}>
                       {qcMetrics.mosDisplay !== "—" ? (qcMetrics.isSilent ? "SPEECH QUALITY (HOLDING SCORE)" : "OVERALL SPEECH QUALITY") : "SPEECH QUALITY (AWAITING VOICE)"}
                     </span>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: "8px", margin: "8px 0 4px" }}>
-                      <span style={{ fontSize: "44px", fontWeight: "900", lineHeight: 1, color: qcMetrics.isSilent && qcMetrics.mosDisplay === "—" ? "#64748b" : "#ffffff" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: "10px", margin: "14px 0 8px" }}>
+                      <span style={{ fontSize: "64px", fontWeight: "900", lineHeight: 1, color: qcMetrics.isSilent && qcMetrics.mosDisplay === "—" ? "#64748b" : "#ffffff" }}>
                         {qcMetrics.mosDisplay}
                       </span>
-                      <span style={{ fontSize: "15px", color: "#94a3b8" }}>/ 5.0 MOS</span>
+                      <span style={{ fontSize: "20px", color: "#94a3b8", fontWeight: "600" }}>/ 5.0 MOS</span>
                     </div>
 
                     <div style={{
                       display: "inline-block",
                       background: qcMetrics.ratingColor,
                       color: "#ffffff",
-                      fontSize: "11px",
+                      fontSize: "14px",
                       fontWeight: "800",
-                      padding: "3px 10px",
-                      borderRadius: "12px",
+                      padding: "6px 16px",
+                      borderRadius: "9999px",
                       letterSpacing: "0.8px",
-                      marginBottom: "6px"
+                      marginBottom: "10px"
                     }}>
                       {qcMetrics.ratingText}
                     </div>
-                    <div style={{ fontSize: "10px", color: "#94a3b8", lineHeight: 1.3, marginBottom: "4px" }}>
+                    <div style={{ fontSize: "14px", color: "#cbd5e1", lineHeight: 1.5, marginBottom: "8px" }}>
                       {qcMetrics.statusNote}
                     </div>
                   </div>
 
                   {/* Engine Details Footer */}
-                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.12)", paddingTop: "8px" }}>
-                    <div style={{ fontSize: "11px", fontWeight: "800", color: "#38bdf8" }}>
+                  <div style={{ borderTop: "1px solid rgba(255,255,255,0.15)", paddingTop: "14px" }}>
+                    <div style={{ fontSize: "14px", fontWeight: "800", color: "#38bdf8" }}>
                       {"EdgeAudioNet v2"}
                     </div>
-                    <div style={{ fontSize: "10px", color: "#94a3b8", display: "flex", justifyContent: "space-between", marginTop: "3px" }}>
+                    <div style={{ fontSize: "13px", color: "#94a3b8", display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
                       <span>{qcMetrics.isSilent ? "VAD: Listening..." : `WASM: ${qcMetrics.latencyMs}ms`}</span>
                       <span>SNR: {qcMetrics.rawSnr} dB</span>
                     </div>
@@ -1759,83 +1761,83 @@ function LiveCommunication() {
                 </div>
 
                 {/* 4 SUB-METRICS METERS */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px" }}>
                   {/* MICROPHONE */}
-                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px 14px" }}>
+                  <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: "14px", padding: "20px 24px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Microphone</span>
-                      <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "700" }}>{liveDb} dBFS</span>
+                      <span style={{ fontSize: "13px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "1px" }}>Microphone</span>
+                      <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "700" }}>{liveDb} dBFS</span>
                     </div>
-                    <h3 style={{ margin: "4px 0 2px", fontSize: "15px", color: qcMetrics.micStatusColor }}>
+                    <h3 style={{ margin: "8px 0 4px", fontSize: "22px", fontWeight: "800", color: qcMetrics.micStatusColor }}>
                       {qcMetrics.micStatus}
                     </h3>
-                    <span style={{ fontSize: "11px", color: "#64748b" }}>Peak & overload monitoring</span>
+                    <span style={{ fontSize: "14px", color: "#64748b" }}>Peak & overload monitoring</span>
                   </div>
 
                   {/* NETWORK */}
-                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px 14px" }}>
+                  <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: "14px", padding: "20px 24px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Network</span>
-                      <span style={{ fontSize: "11px", color: qcMetrics.networkColor, fontWeight: "700" }}>WebRTC</span>
+                      <span style={{ fontSize: "13px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "1px" }}>Network</span>
+                      <span style={{ fontSize: "14px", color: qcMetrics.networkColor, fontWeight: "700" }}>WebRTC</span>
                     </div>
-                    <h3 style={{ margin: "4px 0 2px", fontSize: "15px", color: qcMetrics.networkColor }}>
+                    <h3 style={{ margin: "8px 0 4px", fontSize: "22px", fontWeight: "800", color: qcMetrics.networkColor }}>
                       {qcMetrics.networkStatus}
                     </h3>
-                    <span style={{ fontSize: "11px", color: "#64748b" }}>Mesh signaling active</span>
+                    <span style={{ fontSize: "14px", color: "#64748b" }}>Mesh signaling active</span>
                   </div>
 
                   {/* BACKGROUND NOISE */}
-                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px 14px" }}>
+                  <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: "14px", padding: "20px 24px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Background Noise</span>
-                      <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "700" }}>SNR Floor</span>
+                      <span style={{ fontSize: "13px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "1px" }}>Background Noise</span>
+                      <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "700" }}>SNR Floor</span>
                     </div>
-                    <h3 style={{ margin: "4px 0 2px", fontSize: "15px", color: qcMetrics.noiseLevelColor }}>
+                    <h3 style={{ margin: "8px 0 4px", fontSize: "22px", fontWeight: "800", color: qcMetrics.noiseLevelColor }}>
                       {qcMetrics.noiseLevel}
                     </h3>
-                    <span style={{ fontSize: "11px", color: "#64748b" }}>Dynamic noise floor estimation</span>
+                    <span style={{ fontSize: "14px", color: "#64748b" }}>Dynamic noise floor estimation</span>
                   </div>
 
                   {/* SPEECH CLARITY */}
-                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px 14px" }}>
+                  <div style={{ background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: "14px", padding: "20px 24px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Speech Clarity</span>
-                      <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "700" }}>Formants</span>
+                      <span style={{ fontSize: "13px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "1px" }}>Speech Clarity</span>
+                      <span style={{ fontSize: "14px", color: "#64748b", fontWeight: "700" }}>Formants</span>
                     </div>
-                    <h3 style={{ margin: "4px 0 2px", fontSize: "15px", color: qcMetrics.speechClarityColor }}>
+                    <h3 style={{ margin: "8px 0 4px", fontSize: "22px", fontWeight: "800", color: qcMetrics.speechClarityColor }}>
                       {qcMetrics.speechClarity}
                     </h3>
-                    <span style={{ fontSize: "11px", color: "#64748b" }}>Spectral band concentration</span>
+                    <span style={{ fontSize: "14px", color: "#64748b" }}>Spectral band concentration</span>
                   </div>
                 </div>
 
               </div>
 
               {/* LIVE 60FPS FFT CANVAS VISUALIZER */}
-              <div style={{ marginTop: "16px", borderTop: "1px solid #f1f5f9", paddingTop: "14px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: "700", color: "#07162d" }}>
+              <div style={{ marginTop: "24px", borderTop: "2px solid #f1f5f9", paddingTop: "20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                  <span style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a" }}>
                     Live FFT Frequency Spectrum (256-bin AnalyserNode):
                   </span>
-                  <span style={{ fontSize: "12px", color: isVoiceActive ? "#10b981" : "#64748b", fontWeight: "700" }}>
+                  <span style={{ fontSize: "15px", color: isVoiceActive ? "#10b981" : "#64748b", fontWeight: "700" }}>
                     {isVoiceActive ? "🗣️ Voice Detected (Active Speech)" : "Listening (Speak into microphone or click 'Play Demo Voice')..."}
                   </span>
                 </div>
                 <canvas
                   ref={canvasRef}
-                  width="900"
-                  height="50"
-                  style={{ width: "100%", height: "50px", borderRadius: "8px", border: "1px solid #1e293b", background: "#07162d" }}
+                  width="1200"
+                  height="64"
+                  style={{ width: "100%", height: "64px", borderRadius: "12px", border: "1px solid #1e293b", background: "#0f172a" }}
                 />
               </div>
 
               {/* QUALITY TREND ROLLING GRAPH */}
-              <div style={{ marginTop: "14px", borderTop: "1px solid #f1f5f9", paddingTop: "12px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "12px", fontWeight: "700", color: "#07162d" }}>
+              <div style={{ marginTop: "20px", borderTop: "2px solid #f1f5f9", paddingTop: "18px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                  <span style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a" }}>
                     Quality Trend (Rolling 10-Second History):
                   </span>
-                  <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "700" }}>
+                  <span style={{ fontSize: "15px", color: "#64748b", fontWeight: "700" }}>
                     {qualityTrend.length === 0
                       ? "Awaiting speech to record quality trend..."
                       : qualityTrend.length < 10
@@ -1844,9 +1846,9 @@ function LiveCommunication() {
                   </span>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "flex-end", gap: "6px", height: "45px", background: "#f8fafc", padding: "4px 10px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", height: "55px", background: "#f8fafc", padding: "6px 14px", borderRadius: "12px", border: "1.5px solid #e2e8f0" }}>
                   {qualityTrend.length === 0 ? (
-                    <div style={{ width: "100%", textAlign: "center", color: "#94a3b8", fontSize: "12px", alignSelf: "center" }}>
+                    <div style={{ width: "100%", textAlign: "center", color: "#94a3b8", fontSize: "15px", alignSelf: "center" }}>
                       🎙️ Speak into microphone or play voice demo to record rolling 10-second quality trend...
                     </div>
                   ) : (
@@ -1859,10 +1861,10 @@ function LiveCommunication() {
                             width: "100%",
                             height: `${barHeight}%`,
                             background: color,
-                            borderRadius: "3px 3px 0 0",
+                            borderRadius: "4px 4px 0 0",
                             transition: "height 0.25s ease, background 0.25s ease"
                           }}></div>
-                          <span style={{ fontSize: "9px", color: "#64748b", marginTop: "2px", fontWeight: "700" }}>{score}</span>
+                          <span style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", fontWeight: "700" }}>{score}</span>
                         </div>
                       );
                     })
@@ -1871,10 +1873,10 @@ function LiveCommunication() {
               </div>
 
               {/* MULTI-SELECT ACOUSTIC CONDITION SIMULATOR */}
-              <div style={{ marginTop: "16px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "12px 16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
+              <div style={{ marginTop: "24px", background: "#f0fdf4", border: "1.5px solid #bbf7d0", borderRadius: "16px", padding: "22px 28px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "14px" }}>
                   <div>
-                    <h4 style={{ margin: 0, color: "#166534", fontSize: "13px", fontWeight: "800" }}>
+                    <h4 style={{ margin: 0, color: "#166534", fontSize: "17px", fontWeight: "800" }}>
                       🧪 Lab Demo: Multi-Condition Acoustic Simulator (Select multiple to test compound effects)
                     </h4>
                   </div>
@@ -1886,10 +1888,10 @@ function LiveCommunication() {
                       style={{
                         background: "#ffffff",
                         color: "#166534",
-                        border: "1px solid #86efac",
-                        borderRadius: "12px",
-                        padding: "3px 10px",
-                        fontSize: "11px",
+                        border: "1.5px solid #86efac",
+                        borderRadius: "14px",
+                        padding: "6px 16px",
+                        fontSize: "14px",
                         fontWeight: "800",
                         cursor: "pointer"
                       }}
@@ -1899,20 +1901,20 @@ function LiveCommunication() {
                   )}
                 </div>
 
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                   <button
                     type="button"
                     onClick={() => toggleSimulation("noise")}
                     style={{
-                      padding: "6px 12px",
-                      borderRadius: "16px",
-                      fontSize: "12px",
+                      padding: "10px 18px",
+                      borderRadius: "9999px",
+                      fontSize: "14px",
                       fontWeight: "700",
                       border: "none",
                       cursor: "pointer",
                       background: simulations.noise ? "#d97706" : "#ffffff",
                       color: simulations.noise ? "#ffffff" : "#b45309",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
                       transition: "all 0.15s ease"
                     }}
                   >
@@ -1923,15 +1925,15 @@ function LiveCommunication() {
                     type="button"
                     onClick={() => toggleSimulation("packetLoss")}
                     style={{
-                      padding: "6px 12px",
-                      borderRadius: "16px",
-                      fontSize: "12px",
+                      padding: "10px 18px",
+                      borderRadius: "9999px",
+                      fontSize: "14px",
                       fontWeight: "700",
                       border: "none",
                       cursor: "pointer",
                       background: simulations.packetLoss ? "#dc2626" : "#ffffff",
                       color: simulations.packetLoss ? "#ffffff" : "#b91c1c",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
                       transition: "all 0.15s ease"
                     }}
                   >
@@ -1942,15 +1944,15 @@ function LiveCommunication() {
                     type="button"
                     onClick={() => toggleSimulation("clipping")}
                     style={{
-                      padding: "6px 12px",
-                      borderRadius: "16px",
-                      fontSize: "12px",
+                      padding: "10px 18px",
+                      borderRadius: "9999px",
+                      fontSize: "14px",
                       fontWeight: "700",
                       border: "none",
                       cursor: "pointer",
                       background: simulations.clipping ? "#7f1d1d" : "#ffffff",
                       color: simulations.clipping ? "#ffffff" : "#991b1b",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
                       transition: "all 0.15s ease"
                     }}
                   >
@@ -1961,15 +1963,15 @@ function LiveCommunication() {
                     type="button"
                     onClick={() => toggleSimulation("muffled")}
                     style={{
-                      padding: "6px 12px",
-                      borderRadius: "16px",
-                      fontSize: "12px",
+                      padding: "10px 18px",
+                      borderRadius: "9999px",
+                      fontSize: "14px",
                       fontWeight: "700",
                       border: "none",
                       cursor: "pointer",
                       background: simulations.muffled ? "#4f46e5" : "#ffffff",
                       color: simulations.muffled ? "#ffffff" : "#4338ca",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
                       transition: "all 0.15s ease"
                     }}
                   >
@@ -1981,16 +1983,16 @@ function LiveCommunication() {
             </section>
 
         {/* PRIVACY GUARANTEE FOOTER */}
-        <section className="privacy-box" style={{ marginTop: "18px", padding: "14px 18px" }}>
-          <h2 style={{ fontSize: "15px", margin: "0 0 4px" }}>Zero-Cloud Privacy Guarantee</h2>
-          <p style={{ margin: 0, fontSize: "13px", lineHeight: "1.4" }}>
+        <section className="privacy-box" style={{ marginTop: "28px", padding: "26px 36px", borderRadius: "16px", background: "#f8fafc", border: "1.5px solid #e2e8f0", borderLeft: "6px solid #2563eb" }}>
+          <h2 style={{ fontSize: "22px", margin: "0 0 8px", fontWeight: "800", color: "#0f172a" }}>Zero-Cloud Privacy Guarantee</h2>
+          <p style={{ margin: 0, fontSize: "16px", lineHeight: "1.7", color: "#475569" }}>
             EdgeAudio-QC captures and analyzes speech audio locally inside the browser's Web Audio API context. Raw voice waveforms and audio buffers never leave your machine and are never uploaded to any remote server or S3 bucket.
           </p>
         </section>
 
       </main>
 
-      <footer className="live-footer" style={{ marginTop: "16px" }}>
+      <footer className="live-footer" style={{ marginTop: "28px", fontSize: "15px", padding: "30px" }}>
         EdgeAudio-QC | Privacy-Preserving Speech Quality Estimation Prototype
       </footer>
     </div>
