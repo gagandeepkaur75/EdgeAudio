@@ -423,6 +423,7 @@ a {
 
 .blue-box {
   background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+  border: 1.5px solid #dbeafe;
   border-left: 6px solid #2563eb;
   border-radius: 0 16px 16px 0;
   padding: 32px 40px;
@@ -458,24 +459,28 @@ a {
 }
 
 .project-card {
-  background: #ffffff;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 34px 30px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+  border: 1.5px solid #dbeafe;
+  border-left: 6px solid #2563eb;
+  border-radius: 0 16px 16px 0;
+  padding: 32px 30px;
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.05);
+  display: flex;
+  flex-direction: column;
 }
 
 .project-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.14);
   border-color: #bfdbfe;
+  border-left-color: #1d4ed8;
 }
 
 .project-card h3 {
   margin: 0 0 12px;
   color: #0f172a;
-  font-size: 21px;
+  font-size: 22px;
   font-weight: 800;
 }
 
@@ -483,13 +488,16 @@ a {
 .project-card h3:only-child,
 .project-card h3:first-child:is(:empty, [class*="num"]) {
   color: #2563eb;
+  font-size: 28px;
+  font-weight: 900;
 }
 
 .project-card p {
   margin: 0;
-  color: #475569;
-  font-size: 17px;
+  color: #334155;
+  font-size: 18px;
   line-height: 1.7;
+  font-weight: 500;
 }
 
 /* =========================================================
