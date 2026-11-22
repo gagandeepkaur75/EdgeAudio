@@ -4,6 +4,16 @@ const db = require('../db');
 
 const router = express.Router();
 
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9_-]{0,79}$/;
+// Paths the frontend router already uses for its own pages (see src/App.jsx).
+// "planning-v1" and "planning-v2" are NOT reserved: those pages show the
+// published deliverable when one exists.
+const RESERVED_SLUGS = new Set([
+  'project', 'team', 'timeline', 'architecture', 'live-communication', 'live',
+  'live-test', 'planning', 'admin', 'deliverables', 'api', 'uploads', 'assets',
+  'models', 'audio',
+]);
+
 // POST /api/publish  (auth required)
 // Body: { slug, title, deliverableType, version, presentationDate, authors,
 //         changeSummary, fileKey, fileUrl, originalFilename, sizeBytes }
@@ -30,6 +40,27 @@ router.post('/', requireAuth, (req, res) => {
     .filter((field) => !req.body?.[field]);
   if (missing.length) {
     return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
+  }
+
+  const nonString = ['slug', 'title', 'deliverableType', 'version', 'presentationDate', 'authors', 'fileKey', 'fileUrl', 'changeSummary', 'originalFilename']
+    .filter((field) => req.body[field] != null && typeof req.body[field] !== 'string');
+  if (nonString.length) {
+    return res.status(400).json({ error: `These fields must be text: ${nonString.join(', ')}` });
+  }
+
+  // The slug becomes the page URL (https://site/<slug>), so it must be URL-safe
+  // and must not collide with one of the site's own pages, which would hide it.
+  if (!SLUG_PATTERN.test(slug)) {
+    return res.status(400).json({ error: 'Slug must be 1-80 characters: lowercase letters, numbers, "-" or "_", starting with a letter or number.' });
+  }
+  if (RESERVED_SLUGS.has(slug)) {
+    return res.status(400).json({ error: `"${slug}" is already used by a page on the site. Choose a different slug.` });
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(presentationDate)) {
+    return res.status(400).json({ error: 'presentationDate must be in YYYY-MM-DD format' });
+  }
+  if (!/^https?:\/\//i.test(fileUrl)) {
+    return res.status(400).json({ error: 'fileUrl must be an http(s) URL' });
   }
 
   const existing = db.prepare('SELECT id FROM deliverables WHERE slug = ?').get(slug);

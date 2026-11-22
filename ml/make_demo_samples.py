@@ -4,6 +4,7 @@ import soundfile as sf
 import numpy as np
 import scipy.signal
 
+from paths import P
 from degradations import (
     simulate_clipping,
     simulate_muffle,
@@ -15,13 +16,13 @@ from degradations import (
 )
 
 SR = 16000
-SAMPLE_DIR = "project/web/samples"
+SAMPLE_DIR = P("web/samples")
 os.makedirs(SAMPLE_DIR, exist_ok=True)
 
 def create_demo_samples():
     print("Generating pre-bundled demo WAV samples...")
     # Find clean speech file from test set
-    clean_files = sorted(glob.glob("project/data/clean_speech/*/*.flac"))
+    clean_files = sorted(glob.glob(P("data/clean_speech/*/*.flac")))
     if not clean_files:
         print("Error: clean speech files not found.")
         return

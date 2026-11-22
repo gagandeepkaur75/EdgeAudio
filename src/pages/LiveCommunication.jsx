@@ -1,17 +1,33 @@
 import { useEffect, useState, useRef, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import PageNav from "../components/PageNav";
 import { API_BASE_URL } from "../utils/api";
-import { mlAudioAnalyzer } from "../utils/mlAudioAnalyzer";
+import { mlAudioAnalyzer, remoteAudioAnalyzer } from "../utils/mlAudioAnalyzer";
+
+const EMPTY_REMOTE_ML = {
+  isLoaded: false,
+  hasPrediction: false,
+  isSilent: true,
+  mos: null,
+  latencyMs: 0,
+  noiseProb: 0,
+  clipProb: 0,
+  muffleProb: 0,
+  dropoutProb: 0,
+  windProb: 0,
+};
 import "./live.css";
 
 function LiveCommunication() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // User & Meeting Identity
   const userIdRef = useRef(`user_${Math.random().toString(36).substring(2, 9)}`);
   const [meetingId, setMeetingId] = useState("");
+  const meetingIdRef = useRef("");
+  useEffect(() => {
+    meetingIdRef.current = meetingId;
+  }, [meetingId]);
   const [inputMeetingId, setInputMeetingId] = useState("");
   const [meetingCreated, setMeetingCreated] = useState(false);
   const [isInMeeting, setIsInMeeting] = useState(false);
@@ -42,6 +58,13 @@ function LiveCommunication() {
   const [peerCount, setPeerCount] = useState(1);
   const [peerList, setPeerList] = useState([]);
   const [remoteAudioAttached, setRemoteAudioAttached] = useState(false);
+  // True only while the WebRTC connection to the other participant is up.
+  const [isCallConnected, setIsCallConnected] = useState(false);
+
+  // Quality of the audio we RECEIVE from the other participant (what we hear).
+  const [remoteMl, setRemoteMl] = useState(EMPTY_REMOTE_ML);
+  const remoteNodesRef = useRef(null);
+  const remoteTimerRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const remoteAudioRef = useRef(null);
   const pollTimerRef = useRef(null);
@@ -88,7 +111,6 @@ function LiveCommunication() {
   const oscTimerRef = useRef(null);
   const scriptProcessorRef = useRef(null);
   const demoSourceRef = useRef(null);
-  const demoAudioBufferRef = useRef(null);
   const demoMonitorGainRef = useRef(null);
   const noiseStateRef = useRef(0);
   const filterNodeRef = useRef(null);
@@ -206,7 +228,7 @@ function LiveCommunication() {
       noiseLevel: noiseText,
       noiseLevelColor: noiseColor,
       speechClarity,
-      speechClarityColor: simulations.muffled ? "#ef4444" : isActuallySpeaking ? "#10b981" : "#64748b",
+      speechClarityColor,
       networkStatus,
       networkColor,
       engine: "neural",
@@ -214,6 +236,41 @@ function LiveCommunication() {
       rawSnr: snrVal,
     };
   }, [liveDb, isVoiceActive, isScoreHeld, micEnabled, isTestTonePlaying, simulations, peerCount, mlState]);
+
+  /* Incoming audio ("what you hear") summary for the call-only card */
+  const showIncomingCard = isInMeeting && isCallConnected && remoteAudioAttached;
+  const incomingMetrics = useMemo(() => {
+    const r = remoteMl;
+    const hasScore = r.hasPrediction && Number.isFinite(r.mos);
+    const mos = hasScore ? Math.max(1, Math.min(5, r.mos)) : null;
+    const grade = (m) => (m >= 4 ? "GOOD" : m >= 3 ? "FAIR" : "POOR");
+    const gradeColor = (m) => (m >= 4 ? "#0284c7" : m >= 3 ? "#f59e0b" : "#ef4444");
+
+    // Most likely problem in what we receive. Dropouts here usually mean network loss.
+    const issues = [
+      ["Dropouts (network loss)", r.dropoutProb, 0.35],
+      ["Background noise", r.noiseProb, 0.45],
+      ["Clipping / overload", r.clipProb, 0.35],
+      ["Muffled audio", r.muffleProb, 0.45],
+      ["Wind / mic bumps", r.windProb, 0.4],
+    ].filter(([, p, t]) => p > t).sort((a, b) => b[1] - a[1]);
+
+    if (!r.isLoaded) {
+      return { display: "—", label: "LOADING", ratingText: "STARTING ANALYSIS", ratingColor: "#64748b", note: "Loading the on-device model for incoming audio", issue: "" };
+    }
+    if (mos === null) {
+      return { display: "—", label: "AWAITING", ratingText: "LISTENING", ratingColor: "#64748b", note: "Waiting for the other person to speak", issue: "" };
+    }
+    return {
+      display: mos.toFixed(1),
+      label: r.isSilent ? "HELD" : "INCOMING QUALITY",
+      ratingText: r.isSilent ? `${grade(mos)} (PAUSED)` : grade(mos),
+      ratingColor: r.isSilent ? "#64748b" : gradeColor(mos),
+      note: r.isSilent ? "Other person paused · holding last score" : "Scored on-device from the audio you receive",
+      issue: issues.length ? `${issues[0][0]} (${Math.round(issues[0][1] * 100)}%)` : "No issues detected",
+      issueColor: issues.length ? "#f87171" : "#34d399",
+    };
+  }, [remoteMl]);
 
   // Keep currentMosRef in sync for rolling trend graph without stale closures
   useEffect(() => {
@@ -255,6 +312,17 @@ function LiveCommunication() {
       analyser.maxDecibels = -25;
       analyserRef.current = analyser;
 
+      // Tear down nodes from any previous call to this function. Without this,
+      // each rebuild leaves the old filter/gain nodes wired to the speakers,
+      // leaking nodes and playing the demo monitor more than once.
+      for (const ref of [filterNodeRef, zeroGainRef, demoMonitorGainRef]) {
+        if (ref.current) {
+          try { ref.current.disconnect(); } catch {}
+          ref.current = null;
+        }
+      }
+      try { analyser.disconnect(); } catch {}
+
       // Filter node for Muffled acoustic simulation
       const biquadFilter = audioCtx.createBiquadFilter();
       biquadFilter.type = "lowpass";
@@ -263,16 +331,25 @@ function LiveCommunication() {
       filterNodeRef.current = biquadFilter;
       if (stream && stream.getAudioTracks && stream.getAudioTracks().length > 0) {
         if (sourceRef.current) {
-          try { sourceRef.current.disconnect(); } catch (e) {}
+          try { sourceRef.current.disconnect(); } catch {}
         }
         const source = audioCtx.createMediaStreamSource(stream);
         sourceRef.current = source;
         source.connect(biquadFilter);
+      } else if (sourceRef.current) {
+        // Keep an existing mic/PC source flowing into the rebuilt graph.
+        try { sourceRef.current.disconnect(); } catch {}
+        sourceRef.current.connect(biquadFilter);
+      }
+      if (demoSourceRef.current) {
+        // A demo voice that is already playing must follow the new filter too.
+        try { demoSourceRef.current.disconnect(); } catch {}
+        demoSourceRef.current.connect(biquadFilter);
       }
 
       // ScriptProcessorNode for real-time acoustic degradation and continuous PCM streaming
       if (scriptProcessorRef.current) {
-        try { scriptProcessorRef.current.disconnect(); } catch (e) {}
+        try { scriptProcessorRef.current.disconnect(); } catch {}
       }
       const scriptNode = audioCtx.createScriptProcessor(2048, 1, 1);
       scriptProcessorRef.current = scriptNode;
@@ -378,7 +455,6 @@ function LiveCommunication() {
           let speechPower = 0;
           let totalPower = 0;
           let logPowerSum = 0;
-          let peakPower = 0;
           let bandBinCount = 0;
           const bandEnergies = [];
           for (let i = totalStartBin; i <= totalEndBin; i++) {
@@ -388,7 +464,6 @@ function LiveCommunication() {
             if (i >= speechStartBin && i <= speechEndBin) {
               speechPower += power;
               logPowerSum += Math.log(Math.max(power, 1e-12));
-              peakPower = Math.max(peakPower, power);
               bandBinCount++;
               bandEnergies.push(power);
             }
@@ -396,7 +471,6 @@ function LiveCommunication() {
           const speechBandRatio = speechPower / Math.max(totalPower, 1e-12);
           const averageBandPower = speechPower / Math.max(1, bandBinCount);
           const spectralFlatness = Math.exp(logPowerSum / Math.max(1, bandBinCount)) / Math.max(averageBandPower, 1e-12);
-          const peakToAverage = peakPower / Math.max(averageBandPower, 1e-12);
           let spectralChange = 0;
           if (previousBandEnergies && previousBandEnergies.length === bandEnergies.length) {
             let changeSum = 0;
@@ -456,7 +530,9 @@ function LiveCommunication() {
           const voiceActive = isTestTonePlayingRef.current || (now - lastSpeechTimeRef.current < 1400);
 
           // Score hold timer: holds evaluated score for 3500ms of silence before reverting to em dash
-          const isHolding = (micEnabled || isTestTonePlayingRef.current) && lastSpeechTimeRef.current > 0 && (now - lastSpeechTimeRef.current < 3500);
+          // Read the ref, not React state: this loop's closure was created once
+          // and would otherwise see the mic state from when the graph was built.
+          const isHolding = (micEnabledRef.current || isTestTonePlayingRef.current) && lastSpeechTimeRef.current > 0 && (now - lastSpeechTimeRef.current < 3500);
           if (isHolding !== isScoreHeldRef.current) {
             isScoreHeldRef.current = isHolding;
             setIsScoreHeld(isHolding);
@@ -563,7 +639,7 @@ function LiveCommunication() {
       try {
         demoSourceRef.current.stop();
         demoSourceRef.current.disconnect();
-      } catch (e) {}
+      } catch {}
       demoSourceRef.current = null;
     }
     if (demoMonitorGainRef.current) {
@@ -574,7 +650,7 @@ function LiveCommunication() {
       try {
         oscillatorRef.current.stop();
         oscillatorRef.current.disconnect();
-      } catch (e) {}
+      } catch {}
       oscillatorRef.current = null;
     }
     setIsTestTonePlaying(false);
@@ -598,7 +674,7 @@ function LiveCommunication() {
 
       // Stop existing playback before switching
       if (demoSourceRef.current) {
-        try { demoSourceRef.current.stop(); demoSourceRef.current.disconnect(); } catch (e) {}
+        try { demoSourceRef.current.stop(); demoSourceRef.current.disconnect(); } catch {}
         demoSourceRef.current = null;
       }
 
@@ -660,6 +736,8 @@ function LiveCommunication() {
 
   const handleCustomFileUpload = async (e) => {
     const file = e.target.files && e.target.files[0];
+    // Clear the input so picking the same file again still fires onChange.
+    e.target.value = "";
     if (!file) return;
     try {
       if (!audioContextRef.current || audioContextRef.current.state === "closed") {
@@ -782,14 +860,94 @@ function LiveCommunication() {
     }
   };
 
+  /* =====================================================
+     INCOMING AUDIO ANALYSIS (what the listener actually hears)
+     The remote stream plays through the hidden <audio> element; a silent
+     Web Audio branch taps it and feeds a second on-device analyzer.
+  ===================================================== */
+  const stopRemoteAnalysis = () => {
+    if (remoteTimerRef.current) {
+      clearInterval(remoteTimerRef.current);
+      remoteTimerRef.current = null;
+    }
+    if (remoteNodesRef.current) {
+      const { src, proc, sink } = remoteNodesRef.current;
+      for (const node of [src, proc, sink]) {
+        try { node.disconnect(); } catch {}
+      }
+      proc.onaudioprocess = null;
+      remoteNodesRef.current = null;
+    }
+    remoteAudioAnalyzer.resetAll();
+    setRemoteMl(EMPTY_REMOTE_ML);
+  };
+
+  const startRemoteAnalysis = (stream) => {
+    stopRemoteAnalysis();
+    if (!stream || stream.getAudioTracks().length === 0) return;
+    try {
+      if (!remoteAudioAnalyzer.isReady) remoteAudioAnalyzer.init();
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      let ctx = audioContextRef.current;
+      if (!ctx || ctx.state === "closed") {
+        ctx = new AudioCtx();
+        audioContextRef.current = ctx;
+      }
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+
+      const src = ctx.createMediaStreamSource(stream);
+      const proc = ctx.createScriptProcessor(2048, 1, 1);
+      const sink = ctx.createGain();
+      sink.gain.value = 0; // analysis only; the <audio> element does the playback
+      proc.onaudioprocess = (e) => {
+        // No local VAD here: the analyzer's energy gate + the model's voice_prob decide.
+        remoteAudioAnalyzer.pushAudio(e.inputBuffer.getChannelData(0), ctx.sampleRate, false);
+      };
+      src.connect(proc);
+      proc.connect(sink);
+      sink.connect(ctx.destination);
+      remoteNodesRef.current = { src, proc, sink };
+
+      let busy = false;
+      remoteTimerRef.current = setInterval(async () => {
+        if (busy) return;
+        busy = true;
+        try {
+          const res = await remoteAudioAnalyzer.predict();
+          setRemoteMl({
+            isLoaded: !!res.isReady,
+            hasPrediction: !!res.hasPrediction,
+            isSilent: !!res.isSilent,
+            mos: res.hasPrediction ? res.mos : null,
+            latencyMs: res.latencyMs || 0,
+            noiseProb: res.noiseProb || 0,
+            clipProb: res.clipProb || 0,
+            muffleProb: res.muffleProb || 0,
+            dropoutProb: res.dropoutProb || 0,
+            windProb: res.windProb || 0,
+          });
+        } catch (err) {
+          console.warn("Incoming audio analysis error:", err);
+        } finally {
+          busy = false;
+        }
+      }, 500);
+    } catch (err) {
+      console.warn("Could not start incoming audio analysis:", err);
+    }
+  };
+
   const closePeerConnection = () => {
     if (peerConnectionRef.current) {
-      try { peerConnectionRef.current.close(); } catch (e) {}
+      try { peerConnectionRef.current.close(); } catch {}
       peerConnectionRef.current = null;
     }
     pendingCandidatesRef.current = [];
     if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
     setRemoteAudioAttached(false);
+    setIsCallConnected(false);
+    stopRemoteAnalysis();
   };
 
   const flushPendingCandidates = async (pc) => {
@@ -833,11 +991,14 @@ function LiveCommunication() {
         const stream = event.streams[0] || new MediaStream([event.track]);
         remoteAudioRef.current.srcObject = stream;
         setRemoteAudioAttached(true);
+        startRemoteAnalysis(stream);
       };
 
-      // If the connection dies, drop it so the poll loop can build a fresh one.
       pc.onconnectionstatechange = () => {
-        if (peerConnectionRef.current === pc && (pc.connectionState === "failed" || pc.connectionState === "closed")) {
+        if (peerConnectionRef.current !== pc) return;
+        setIsCallConnected(pc.connectionState === "connected");
+        // If the connection dies, drop it so the poll loop can build a fresh one.
+        if (pc.connectionState === "failed" || pc.connectionState === "closed") {
           closePeerConnection();
         }
       };
@@ -924,45 +1085,60 @@ function LiveCommunication() {
     signalChainRef.current = Promise.resolve();
     pendingCandidatesRef.current = [];
 
-    // 1. Join Meeting on Backend
-    fetch(`${API_BASE_URL}/api/meeting/join`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        meetingId: cleanId,
-        userId: userIdRef.current,
-        role: isHost ? "host" : "peer",
-      }),
-    })
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(data.error || "Failed to join meeting room.");
-        }
-        return data;
+    // 1. Join Meeting on Backend. Also used to re-join if the server dropped us
+    // (e.g. a background tab whose polling was throttled past the 45 s timeout,
+    // or a server restart).
+    let joinState = "joining"; // "joining" | "joined" | "failed"
+    const joinRoom = () => {
+      joinState = "joining";
+      return fetch(`${API_BASE_URL}/api/meeting/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meetingId: cleanId,
+          userId: userIdRef.current,
+          role: isHost ? "host" : "peer",
+        }),
       })
-      .then((data) => {
-        if (data.participants) {
-          setPeerCount(data.participantCount || 1);
-          setPeerList(data.participants);
-          // Connections are created by the poll loop (host) or on the first
-          // incoming offer (peer), so nothing to start here.
-        }
-      })
-      .catch((err) => {
-        console.error("Signaling join error:", err);
-        setErrorMessage(err.message || "Failed to connect to room.");
-      });
+        .then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(data.error || "Failed to join meeting room.");
+          }
+          return data;
+        })
+        .then((data) => {
+          joinState = "joined";
+          if (data.participants) {
+            setPeerCount(data.participantCount || 1);
+            setPeerList(data.participants);
+            // Connections are created by the poll loop (host) or on the first
+            // incoming offer (peer), so nothing to start here.
+          }
+        })
+        .catch((err) => {
+          joinState = "failed";
+          console.error("Signaling join error:", err);
+          setErrorMessage(err.message || "Failed to connect to room.");
+        });
+    };
+    joinRoom();
 
     // 2. Poll Room State Every 1.2s
     if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     pollTimerRef.current = setInterval(() => {
-      fetch(`${API_BASE_URL}/api/meeting/${cleanId}/poll?userId=${userIdRef.current}&role=${isHost ? "host" : "peer"}`)
+      fetch(`${API_BASE_URL}/api/meeting/${encodeURIComponent(cleanId)}/poll?userId=${encodeURIComponent(userIdRef.current)}`)
         .then((res) => {
           if (!res.ok) throw new Error("Poll returned non-200");
           return res.json();
         })
         .then((data) => {
+          if (data.joined === false) {
+            // The server no longer has us in the room: re-join (once the first
+            // join has finished) and skip this tick's participant logic.
+            if (joinState === "joined") joinRoom();
+            return;
+          }
           if (data.participants) {
             setPeerCount(data.participantCount || 1);
             setPeerList(data.participants);
@@ -997,24 +1173,6 @@ function LiveCommunication() {
     }, 1200);
   };
 
-  const stopRoomSignaling = (roomId) => {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-    closePeerConnection();
-    if (roomId) {
-      fetch(`${API_BASE_URL}/api/meeting/leave`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId: roomId, userId: userIdRef.current }),
-      }).catch(() => {});
-    }
-    setPeerCount(1);
-    setPeerList([]);
-    remotePeersKeyRef.current = "";
-    signalChainRef.current = Promise.resolve();
-  };
 
   /* =====================================================
      REQUEST MICROPHONE
@@ -1112,31 +1270,38 @@ function LiveCommunication() {
     pendingCandidatesRef.current = [];
     remotePeersKeyRef.current = "";
     signalChainRef.current = Promise.resolve();
-    if (meetingId) {
+    stopRemoteAnalysis();
+    setIsCallConnected(false);
+    // Use the ref: on unmount this function comes from the first render, where
+    // the meetingId state is still "". keepalive lets the request finish even
+    // if the tab is closing.
+    if (meetingIdRef.current) {
       fetch(`${API_BASE_URL}/api/meeting/leave`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId, userId: userIdRef.current }),
+        body: JSON.stringify({ meetingId: meetingIdRef.current, userId: userIdRef.current }),
+        keepalive: true,
       }).catch(() => {});
+      meetingIdRef.current = "";
     }
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     if (demoSourceRef.current) {
       try {
         demoSourceRef.current.stop();
         demoSourceRef.current.disconnect();
-      } catch (e) {}
+      } catch {}
       demoSourceRef.current = null;
     }
     if (scriptProcessorRef.current) {
       try {
         scriptProcessorRef.current.disconnect();
-      } catch (e) {}
+      } catch {}
       scriptProcessorRef.current = null;
     }
     if (demoMonitorGainRef.current) {
       try {
         demoMonitorGainRef.current.disconnect();
-      } catch (e) {}
+      } catch {}
       demoMonitorGainRef.current = null;
     }
     if (oscTimerRef.current) clearInterval(oscTimerRef.current);
@@ -1144,7 +1309,7 @@ function LiveCommunication() {
       try {
         oscillatorRef.current.stop();
         oscillatorRef.current.disconnect();
-      } catch (e) {}
+      } catch {}
       oscillatorRef.current = null;
     }
     if (audioContextRef.current && audioContextRef.current.state !== "closed") {
@@ -1172,6 +1337,8 @@ function LiveCommunication() {
     isTestTonePlayingRef.current = false;
     setIsSystemAudioActive(false);
     setQualityTrend([]);
+    setPeerCount(1);
+    setPeerList([]);
     lastSpeechTimeRef.current = 0;
     isScoreHeldRef.current = false;
     setIsScoreHeld(false);
@@ -1216,7 +1383,7 @@ function LiveCommunication() {
       await navigator.clipboard.writeText(meetingId);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (e) {}
+    } catch {}
   };
 
   const copyInviteLink = async () => {
@@ -1226,7 +1393,7 @@ function LiveCommunication() {
       await navigator.clipboard.writeText(inviteUrl);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
-    } catch (e) {}
+    } catch {}
   };
 
   // Acoustic Simulation Toggles & Physical Audio Graph Morphing
@@ -1269,9 +1436,12 @@ function LiveCommunication() {
     }
   }, [urlParamMeetingId]);
 
+  // Always call the latest cleanup on unmount (avoids a stale first-render closure).
+  const cleanupRef = useRef(cleanupAudioResources);
+  cleanupRef.current = cleanupAudioResources;
   useEffect(() => {
     return () => {
-      cleanupAudioResources();
+      cleanupRef.current();
     };
   }, []);
 
@@ -1419,10 +1589,13 @@ function LiveCommunication() {
           </div>
 
           {/* METRICS GRID: Score + 4 Dials */}
-          <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: "10px", alignItems: "stretch" }}>
+          <div style={{ display: "grid", gridTemplateColumns: showIncomingCard ? "240px 240px 1fr" : "240px 1fr", gap: "10px", alignItems: "stretch" }}>
             {/* MOS CARD */}
             <div style={{ background: "#0f172a", color: "#fff", borderRadius: "10px", padding: "14px 16px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
               <div>
+                {showIncomingCard && (
+                  <div style={{ fontSize: "10px", fontWeight: "800", color: "#94a3b8", letterSpacing: "1px", marginBottom: "2px" }}>🎙️ YOUR MIC</div>
+                )}
                 <span style={{ fontSize: "10px", fontWeight: "800", letterSpacing: "1px", color: qcMetrics.isSilent && qcMetrics.mosDisplay === "—" ? "#94a3b8" : "#38bdf8", textTransform: "uppercase" }}>
                   {qcMetrics.mosDisplay !== "—" ? (qcMetrics.isSilent ? "HELD" : "SPEECH QUALITY") : "AWAITING"}
                 </span>
@@ -1441,6 +1614,30 @@ function LiveCommunication() {
                 </div>
               </div>
             </div>
+
+            {/* INCOMING AUDIO CARD: only while the call is connected */}
+            {showIncomingCard && (
+              <div style={{ background: "#1e1b4b", color: "#fff", borderRadius: "10px", padding: "14px 16px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: "10px", fontWeight: "800", color: "#a5b4fc", letterSpacing: "1px", marginBottom: "2px" }}>🎧 WHAT YOU HEAR</div>
+                  <span style={{ fontSize: "10px", fontWeight: "800", letterSpacing: "1px", color: incomingMetrics.display === "—" ? "#94a3b8" : "#a5b4fc", textTransform: "uppercase" }}>
+                    {incomingMetrics.label}
+                  </span>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: "6px", margin: "4px 0 4px" }}>
+                    <span style={{ fontSize: "42px", fontWeight: "900", lineHeight: 1, color: incomingMetrics.display === "—" ? "#64748b" : "#fff" }}>{incomingMetrics.display}</span>
+                    <span style={{ fontSize: "14px", color: "#94a3b8", fontWeight: "600" }}>/ 5.0 MOS</span>
+                  </div>
+                  <div style={{ display: "inline-block", background: incomingMetrics.ratingColor, color: "#fff", fontSize: "10px", fontWeight: "800", padding: "2px 8px", borderRadius: "9999px", marginBottom: "4px" }}>{incomingMetrics.ratingText}</div>
+                  <div style={{ fontSize: "11px", color: "#cbd5e1", lineHeight: 1.3 }}>{incomingMetrics.note}</div>
+                </div>
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "6px", marginTop: "6px" }}>
+                  <div style={{ fontSize: "10px", fontWeight: "800", color: "#a5b4fc" }}>Received from peer (WebRTC)</div>
+                  <div style={{ fontSize: "10px", color: incomingMetrics.issueColor || "#94a3b8", fontWeight: "700" }}>
+                    {incomingMetrics.issue || "—"}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* 4 SUB-METRICS */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>

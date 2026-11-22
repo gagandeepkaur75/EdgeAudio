@@ -3,6 +3,7 @@ import torch
 import torchaudio.functional as AF
 import json
 import os
+from paths import P
 
 SR = 16000
 N_FFT = 512
@@ -29,7 +30,7 @@ _fb = AF.melscale_fbanks(
 )
 MEL_BASIS = _fb.numpy().T.astype(np.float32)  # (80, 257)
 
-def export_mel_basis_json(output_path="project/web/mel_basis.json"):
+def export_mel_basis_json(output_path=P("web/mel_basis.json")):
     """Exports mel basis to JSON for exact JavaScript execution."""
     data = {
         "sr": SR,

@@ -21,6 +21,7 @@ from degradations import (
 )
 from teacher import compute_clean_vad, compute_teacher_label
 from dataset import get_splits
+from paths import P
 
 SR = 16000
 
@@ -186,7 +187,7 @@ def build_cache(n_train=3000, n_val=350):
     val_clean = splits["val_clean"]
     val_noise = splits["val_noise"]
 
-    with open("project/models/norm_stats.json") as f:
+    with open(P("models/norm_stats.json")) as f:
         stats = json.load(f)
     mean = np.array(stats["mean"], dtype=np.float32)
     std = np.array(stats["std"], dtype=np.float32)
@@ -303,7 +304,7 @@ def build_cache(n_train=3000, n_val=350):
         "mos_mask": torch.tensor(np.array(val_mask, dtype=np.float32)),
     }
 
-    cache_path = "project/models/dataset_cache.pt"
+    cache_path = P("models/dataset_cache.pt")
     torch.save({"train": train_data, "val": val_data}, cache_path)
     print(f"Cache generated successfully in {time.time()-t0:.1f}s: {cache_path}")
     print(f"Train size: {train_data['features'].shape}, Val size: {val_data['features'].shape}")

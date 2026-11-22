@@ -1,8 +1,9 @@
 import os
 import json
 import numpy as np
+from paths import P
 
-def generate_monotonicity_svg(output_path="project/web/monotonicity.svg"):
+def generate_monotonicity_svg(output_path=P("web/monotonicity.svg")):
     # SVG Dimensions
     w, h = 600, 320
     pad = 50

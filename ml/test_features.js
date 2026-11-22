@@ -172,10 +172,10 @@ function extractFeaturesJs(audio, melBasis) {
 function main() {
   initFftTables();
 
-  const melJson = JSON.parse(fs.readFileSync('project/web/mel_basis.json', 'utf8'));
+  const melJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'public', 'models', 'mel_basis.json'), 'utf8'));
   const melBasis = melJson.mel_basis;
 
-  const testData = JSON.parse(fs.readFileSync('project/train/test_clips.json', 'utf8'));
+  const testData = JSON.parse(fs.readFileSync(path.join(__dirname, 'test_clips.json'), 'utf8'));
   const results = [];
 
   for (let idx = 0; idx < testData.clips.length; idx++) {
@@ -184,7 +184,7 @@ function main() {
     results.push(feats);
   }
 
-  fs.writeFileSync('project/train/js_features.json', JSON.stringify({ features: results }));
+  fs.writeFileSync(path.join(__dirname, 'js_features.json'), JSON.stringify({ features: results }));
   console.log(`Extracted JS features for ${results.length} clips.`);
 }
 

@@ -3,13 +3,14 @@ import subprocess
 import os
 import sys
 from playwright.sync_api import sync_playwright
+from paths import P
 
 def test_web_demo_in_browser():
     print("\n" + "="*60)
     print("TEST 5: Real Headless Browser End-to-End Test")
     print("="*60)
 
-    web_dir = os.path.abspath("project/web")
+    web_dir = os.path.abspath(P("web"))
     print(f"Starting python http.server in {web_dir} on port 8000...")
 
     # Start HTTP server

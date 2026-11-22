@@ -13,6 +13,7 @@ from scipy.stats import pearsonr, spearmanr
 from model import SpeechQualityModel
 from dataset import get_splits, SpeechQualityDataset, compute_and_save_norm_stats
 from export_onnx import export_onnx
+from paths import P
 
 def compute_metrics(y_true, y_pred):
     y_true = np.array(y_true)
@@ -50,7 +51,7 @@ def train_model(epochs=8, batch_size=32, lr=1e-3, seed=42):
     
     splits = get_splits(seed=seed)
     
-    norm_path = "project/models/norm_stats.json"
+    norm_path = P("models/norm_stats.json")
     if os.path.exists(norm_path):
         print(f"Loading existing norm stats from {norm_path}...", flush=True)
         with open(norm_path, "r") as f:
@@ -64,12 +65,12 @@ def train_model(epochs=8, batch_size=32, lr=1e-3, seed=42):
             splits["train_clean"], splits["train_noise"], save_path=norm_path, n_samples=250
         )
     
-    with open("project/web/norm_stats.json", "w") as fp:
+    with open(P("web/norm_stats.json"), "w") as fp:
         json.dump({
             "mean": norm_stats["mean"].tolist(),
             "std": norm_stats["std"].tolist()
         }, fp, indent=2)
-    print("Saved norm_stats.json to project/web/norm_stats.json", flush=True)
+    print(f"Saved norm_stats.json to {P('web/norm_stats.json')}", flush=True)
 
     # 1280 samples per epoch = 40 batches of 32
     train_clean_subset = splits["train_clean"][:1280]
@@ -98,8 +99,8 @@ def train_model(epochs=8, batch_size=32, lr=1e-3, seed=42):
     best_val_plcc = -1.0
     best_val_rmse = 999.0
     
-    os.makedirs("project/models", exist_ok=True)
-    best_path = "project/models/best_model.pt"
+    os.makedirs(P("models"), exist_ok=True)
+    best_path = P("models/best_model.pt")
 
     print(f"\nStarting balanced training: {epochs} epochs, {len(train_loader)} batches/epoch (batch_size={batch_size})", flush=True)
 

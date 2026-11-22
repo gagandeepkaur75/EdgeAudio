@@ -9,6 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 from features import extract_features, TARGET_SAMPLES
 from degradations import apply_random_degradation_chain
 from teacher import compute_clean_vad, compute_teacher_label
+from paths import P
 
 SR = 16000
 
@@ -96,7 +97,7 @@ class SpeechQualityDataset(Dataset):
 
         return item
 
-def get_splits(data_root="project/data", seed=42):
+def get_splits(data_root=P("data"), seed=42):
     random.seed(seed)
     clean_dir = os.path.join(data_root, "clean_speech")
     noise_dir = os.path.join(data_root, "noise")
@@ -151,7 +152,7 @@ def get_splits(data_root="project/data", seed=42):
         "test_noise": test_noise
     }
 
-def compute_and_save_norm_stats(train_clean, train_noise, save_path="project/models/norm_stats.json", n_samples=300):
+def compute_and_save_norm_stats(train_clean, train_noise, save_path=P("models/norm_stats.json"), n_samples=300):
     """Computes global feature mean and std across training set."""
     print(f"Computing global normalization constants from {n_samples} training samples...")
     sample_files = random.sample(train_clean, min(n_samples, len(train_clean)))

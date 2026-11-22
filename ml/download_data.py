@@ -4,7 +4,10 @@ import urllib.request
 import tarfile
 import shutil
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+from paths import P
+
+# Same location dataset.py reads from (ml/data)
+DATA_DIR = P('data')
 CLEAN_DIR = os.path.join(DATA_DIR, 'clean_speech')
 os.makedirs(CLEAN_DIR, exist_ok=True)
 
