@@ -1282,7 +1282,7 @@ function LiveCommunication() {
      RENDER
   ===================================================== */
   return (
-    <div className="live-page" style={{ background: "#f8fafc", height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div className="live-page" style={{ background: "#f8fafc", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <PageNav />
 
       {/* Hidden audio element for receiving peer audio stream */}
@@ -1292,13 +1292,13 @@ function LiveCommunication() {
           in-call / standalone branches so it works in both views. */}
       <input ref={fileInputRef} type="file" accept="audio/*" onChange={handleCustomFileUpload} style={{ display: "none" }} />
 
-      <main style={{ flex: 1, maxWidth: "1520px", width: "100%", margin: "0 auto", padding: "8px 24px 6px", boxSizing: "border-box", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <main style={{ maxWidth: "1520px", width: "100%", margin: "0 auto", padding: "16px 28px 40px", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: "16px" }}>
 
         {/* ERROR / WARNING BANNER */}
         {errorMessage && (
-          <div style={{ marginBottom: "6px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px", padding: "6px 14px", borderRadius: "8px", fontSize: "12px", background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", padding: "10px 18px", borderRadius: "10px", fontSize: "14px", background: "#fef2f2", border: "1.5px solid #fecaca", color: "#991b1b" }}>
             <span>⚠️ {errorMessage}</span>
-            <button type="button" onClick={toggleTestTone} style={{ background: isTestTonePlaying ? "#ef4444" : "#07162d", color: "#fff", border: "none", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>
+            <button type="button" onClick={toggleTestTone} style={{ background: isTestTonePlaying ? "#ef4444" : "#07162d", color: "#fff", border: "none", padding: "6px 14px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>
               {isTestTonePlaying ? "⏹ Stop Demo" : "▶ Play Demo"}
             </button>
           </div>
@@ -1306,187 +1306,233 @@ function LiveCommunication() {
 
         {/* TOP SECTION */}
         {isInMeeting ? (
-          <section style={{ background: "#fff", borderRadius: "10px", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", marginBottom: "8px", boxShadow: "0 1px 6px rgba(15,23,42,0.03)", border: "1px solid #edf2f7" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", background: peerCount > 1 ? "#ecfdf5" : "#eff6ff", color: peerCount > 1 ? "#065f46" : "#1d4ed8", fontSize: "11px", fontWeight: "800", padding: "4px 10px", borderRadius: "9999px" }}>
-                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: peerCount > 1 ? "#10b981" : "#2563eb" }}></span>
-                {peerCount > 1 ? `ACTIVE (${peerCount})` : "STANDALONE"}
+          <section style={{ background: "#fff", borderRadius: "14px", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", boxShadow: "0 2px 10px rgba(15,23,42,0.03)", border: "1.5px solid #e2e8f0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: peerCount > 1 ? "#ecfdf5" : "#eff6ff", color: peerCount > 1 ? "#065f46" : "#1d4ed8", fontSize: "13px", fontWeight: "800", padding: "6px 14px", borderRadius: "9999px" }}>
+                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: peerCount > 1 ? "#10b981" : "#2563eb" }}></span>
+                {peerCount > 1 ? `ACTIVE CALL (${peerCount})` : "STANDALONE QC"}
               </span>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#0f172a", color: "#fff", padding: "4px 10px", borderRadius: "6px", fontSize: "11px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#0f172a", color: "#fff", padding: "6px 14px", borderRadius: "8px", fontSize: "13px" }}>
                 <span style={{ color: "#94a3b8" }}>Room:</span>
                 <strong>{meetingId}</strong>
-                <button type="button" onClick={copyMeetingId} style={{ background: "transparent", border: "none", color: "#38bdf8", cursor: "pointer", fontSize: "10px", fontWeight: "700" }}>{copied ? "✓" : "Copy"}</button>
-                <button type="button" onClick={copyInviteLink} style={{ background: "#2563eb", border: "none", color: "#fff", cursor: "pointer", fontSize: "10px", fontWeight: "700", padding: "2px 8px", borderRadius: "4px" }}>{copiedLink ? "✓ Copied" : "🔗 Share"}</button>
+                <button type="button" onClick={copyMeetingId} style={{ background: "transparent", border: "none", color: "#38bdf8", cursor: "pointer", fontSize: "12px", fontWeight: "700", marginLeft: "4px" }}>{copied ? "✓ Copied" : "Copy"}</button>
+                <button type="button" onClick={copyInviteLink} style={{ background: "#2563eb", border: "none", color: "#fff", cursor: "pointer", fontSize: "12px", fontWeight: "700", padding: "3px 10px", borderRadius: "6px", marginLeft: "4px" }}>{copiedLink ? "✓ Copied" : "🔗 Share"}</button>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#f8fafc", border: `1px solid ${isVoiceActive ? "#86efac" : "#e2e8f0"}`, padding: "4px 10px", borderRadius: "6px" }}>
-                <span style={{ fontSize: "14px" }}>{micEnabled ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#f8fafc", border: `1.5px solid ${isVoiceActive ? "#86efac" : "#cbd5e1"}`, padding: "6px 14px", borderRadius: "10px" }}>
+                <span style={{ fontSize: "16px" }}>{micEnabled ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
                 <div>
-                  <span style={{ fontSize: "11px", fontWeight: "700", color: "#0f172a" }}>{micEnabled ? (isVoiceActive ? "Active" : "Open") : "Muted"}</span>
-                  <span style={{ fontSize: "10px", color: "#64748b", fontWeight: "600", marginLeft: "4px" }}>{liveDb}dB</span>
-                  <div style={{ width: "60px", height: "3px", background: "#cbd5e1", borderRadius: "2px", overflow: "hidden", marginTop: "1px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a" }}>{micEnabled ? (isVoiceActive ? "Voice Active" : "Mic Open") : "Muted"}</span>
+                    <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "700" }}>{liveDb} dBFS</span>
+                  </div>
+                  <div style={{ width: "80px", height: "4px", background: "#cbd5e1", borderRadius: "2px", overflow: "hidden", marginTop: "2px" }}>
                     <div style={{ width: `${volumePercent}%`, height: "100%", background: volumePercent > 80 ? "#ef4444" : "#10b981", transition: "width 0.08s ease" }}></div>
                   </div>
                 </div>
               </div>
-              <div style={{ fontSize: "11px", color: peerCount > 1 ? "#065f46" : "#64748b", fontWeight: "700" }}>{peerCount > 1 ? `🟢 Peer (${peerCount})` : "⏳ Waiting"}</div>
-              <select value={selectedDemoVoice} onChange={(e) => handleVoiceChange(e.target.value)} style={{ background: "#fff", border: "1px solid #cbd5e1", padding: "4px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: "600", cursor: "pointer", outline: "none" }}>
+              <div style={{ fontSize: "13px", color: peerCount > 1 ? "#065f46" : "#64748b", fontWeight: "700" }}>{peerCount > 1 ? `🟢 Connected (${peerCount})` : "⏳ Waiting"}</div>
+              <select value={selectedDemoVoice} onChange={(e) => handleVoiceChange(e.target.value)} style={{ background: "#fff", border: "1.5px solid #cbd5e1", padding: "7px 12px", borderRadius: "8px", fontSize: "13px", fontWeight: "600", cursor: "pointer", outline: "none" }}>
                 {DEMO_VOICE_OPTIONS.map((opt) => (<option key={opt.id} value={opt.id}>{opt.id === "custom" && customAudioName ? `📂 ${customAudioName}` : opt.label}</option>))}
               </select>
-              <button type="button" onClick={toggleTestTone} style={{ background: isTestTonePlaying ? "#ef4444" : "#eff6ff", color: isTestTonePlaying ? "#fff" : "#1d4ed8", border: "none", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>{isTestTonePlaying ? "⏹" : "▶ Play"}</button>
-              <button type="button" onClick={isSystemAudioActive ? stopSystemAudioCapture : startSystemAudioCapture} style={{ background: isSystemAudioActive ? "#dc2626" : "#f0fdf4", color: isSystemAudioActive ? "#fff" : "#166534", border: "1px solid #dcfce7", padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>{isSystemAudioActive ? "⏹ PC" : "🖥️ PC"}</button>
+              <button type="button" onClick={toggleTestTone} style={{ background: isTestTonePlaying ? "#ef4444" : "#eff6ff", color: isTestTonePlaying ? "#fff" : "#1d4ed8", border: "none", padding: "7px 14px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>{isTestTonePlaying ? "⏹ Stop" : "▶ Play Voice"}</button>
+              <button type="button" onClick={isSystemAudioActive ? stopSystemAudioCapture : startSystemAudioCapture} style={{ background: isSystemAudioActive ? "#dc2626" : "#f0fdf4", color: isSystemAudioActive ? "#fff" : "#166534", border: "1.5px solid #bbf7d0", padding: "7px 14px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>{isSystemAudioActive ? "⏹ PC Audio" : "🖥️ PC Audio"}</button>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <button type="button" onClick={toggleMicrophone} style={{ background: micEnabled ? "#0f172a" : "#ef4444", color: "#fff", border: "none", padding: "5px 12px", borderRadius: "6px", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>{micEnabled ? "Mute" : "Unmute"}</button>
-              <button type="button" onClick={leaveMeeting} style={{ background: "#fee2e2", color: "#b91c1c", border: "none", padding: "5px 12px", borderRadius: "6px", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>Leave</button>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <button type="button" onClick={toggleMicrophone} style={{ background: micEnabled ? "#0f172a" : "#ef4444", color: "#fff", border: "none", padding: "8px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>{micEnabled ? "Mute Mic" : "Unmute Mic"}</button>
+              <button type="button" onClick={leaveMeeting} style={{ background: "#fee2e2", color: "#b91c1c", border: "none", padding: "8px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>Leave Call</button>
             </div>
           </section>
         ) : (
-          <div style={{ marginBottom: "8px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px", marginBottom: "8px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div>
-                  <span style={{ fontSize: "10px", fontWeight: "700", color: "#2563eb", background: "#eff6ff", padding: "2px 8px", borderRadius: "9999px", letterSpacing: "0.8px", textTransform: "uppercase" }}>● PROTOTYPE</span>
-                  <h1 style={{ color: "#0f172a", fontSize: "22px", margin: "2px 0 0", fontWeight: "800", letterSpacing: "-0.3px" }}>EdgeAudio-QC Live Test</h1>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {/* COMPACT SLEEK HEADER */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "12px" }}>
+              <div>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#eff6ff", color: "#2563eb", padding: "4px 12px", borderRadius: "9999px", fontSize: "12px", fontWeight: "700", letterSpacing: "1px", textTransform: "uppercase", marginBottom: "6px" }}>
+                  <span>●</span> 06 — PROTOTYPE EVALUATION
                 </div>
+                <h1 style={{ color: "#0f172a", fontSize: "clamp(28px, 3vw, 36px)", margin: 0, fontWeight: "800", letterSpacing: "-0.5px" }}>EdgeAudio-QC Live Test</h1>
+                <p style={{ color: "#64748b", margin: "4px 0 0", fontSize: "15px", lineHeight: "1.4" }}>
+                  Real-time on-device speech quality estimator. Speak into your microphone or play a demo voice to compute live MOS scores.
+                </p>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ fontSize: "11px", color: "#64748b", maxWidth: "400px" }}>Real-time on-device speech quality estimator</span>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#fff", padding: "3px 10px", borderRadius: "9999px", fontSize: "11px", fontWeight: "700", color: mlState.isLoaded ? "#065f46" : "#64748b", border: "1px solid #e2e8f0" }}>
-                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: mlState.isLoaded ? "#10b981" : "#94a3b8", display: "inline-block" }}></span>
-                  {mlState.isLoaded ? `Engine (${qcMetrics.latencyMs}ms)` : mlState.isLoading ? "Loading…" : "Offline"}
-                </div>
+
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#fff", padding: "8px 16px", borderRadius: "9999px", fontSize: "13px", fontWeight: "700", color: mlState.isLoaded ? "#065f46" : "#64748b", border: "1.5px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.03)" }}>
+                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: mlState.isLoaded ? "#10b981" : "#94a3b8", display: "inline-block" }}></span>
+                {mlState.isLoaded ? `On-Device Neural Engine (${qcMetrics.latencyMs}ms)` : mlState.isLoading ? "Loading Model…" : "Model Offline"}
               </div>
             </div>
 
             {urlParamMeetingId && (
-              <div style={{ margin: "0 0 8px", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "8px", padding: "6px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+              <div style={{ background: "#ecfdf5", border: "1.5px solid #a7f3d0", borderRadius: "10px", padding: "10px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
                 <div>
-                  <span style={{ fontSize: "10px", fontWeight: "800", color: "#047857", textTransform: "uppercase", letterSpacing: "0.8px" }}>Invitation</span>
-                  <span style={{ fontSize: "13px", fontWeight: "800", color: "#065f46", marginLeft: "8px" }}>Call: <span style={{ color: "#0f172a" }}>{urlParamMeetingId.toUpperCase()}</span></span>
+                  <span style={{ fontSize: "11px", fontWeight: "800", color: "#047857", textTransform: "uppercase", letterSpacing: "0.8px" }}>Invitation</span>
+                  <span style={{ fontSize: "15px", fontWeight: "800", color: "#065f46", marginLeft: "8px" }}>Call: <span style={{ color: "#0f172a" }}>{urlParamMeetingId.toUpperCase()}</span></span>
                 </div>
-                <button type="button" onClick={() => joinMeeting(urlParamMeetingId)} style={{ background: "#10b981", color: "#fff", border: "none", padding: "5px 14px", borderRadius: "6px", fontSize: "12px", fontWeight: "800", cursor: "pointer" }}>🎙️ Join</button>
+                <button type="button" onClick={() => joinMeeting(urlParamMeetingId)} style={{ background: "#10b981", color: "#fff", border: "none", padding: "8px 18px", borderRadius: "8px", fontSize: "13px", fontWeight: "800", cursor: "pointer" }}>🎙️ Join</button>
               </div>
             )}
 
-            <section style={{ background: "#fff", borderRadius: "10px", padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", boxShadow: "0 1px 6px rgba(15,23,42,0.03)", border: "1px solid #edf2f7" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                <button type="button" onClick={micEnabled ? toggleMicrophone : requestMicrophone} style={{ background: micEnabled ? "#0f172a" : "#2563eb", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: "700", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px", boxShadow: micEnabled ? "none" : "0 1px 4px rgba(37,99,235,0.2)" }}>
-                  {micEnabled ? "🔇 Mute" : "🎙️ Enable Mic"}
+            {/* ACTION BAR */}
+            <section style={{ background: "#fff", borderRadius: "14px", padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px", boxShadow: "0 2px 10px rgba(15,23,42,0.03)", border: "1.5px solid #e2e8f0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                <button type="button" onClick={micEnabled ? toggleMicrophone : requestMicrophone} style={{ background: micEnabled ? "#0f172a" : "#2563eb", color: "#fff", border: "none", padding: "9px 18px", borderRadius: "8px", fontSize: "14px", fontWeight: "700", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", boxShadow: micEnabled ? "none" : "0 2px 8px rgba(37,99,235,0.2)" }}>
+                  {micEnabled ? "🔇 Mute Mic" : "🎙️ Enable Mic"}
                 </button>
-                <select value={selectedDemoVoice} onChange={(e) => handleVoiceChange(e.target.value)} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", padding: "5px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: "600", cursor: "pointer", outline: "none" }}>
+                <select value={selectedDemoVoice} onChange={(e) => handleVoiceChange(e.target.value)} style={{ background: "#f8fafc", border: "1.5px solid #cbd5e1", padding: "9px 14px", borderRadius: "8px", fontSize: "14px", fontWeight: "600", cursor: "pointer", outline: "none" }}>
                   {DEMO_VOICE_OPTIONS.map((opt) => (<option key={opt.id} value={opt.id}>{opt.id === "custom" && customAudioName ? `📂 ${customAudioName}` : opt.label}</option>))}
                 </select>
-                <button type="button" onClick={toggleTestTone} style={{ background: isTestTonePlaying ? "#ef4444" : "#eff6ff", color: isTestTonePlaying ? "#fff" : "#1d4ed8", border: "none", padding: "5px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>{isTestTonePlaying ? "⏹ Stop" : "▶ Play Voice"}</button>
-                <button type="button" onClick={isSystemAudioActive ? stopSystemAudioCapture : startSystemAudioCapture} style={{ background: isSystemAudioActive ? "#dc2626" : "#f0fdf4", color: isSystemAudioActive ? "#fff" : "#166534", border: "1px solid #dcfce7", padding: "5px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: "700", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }} title="Capture PC Audio">{isSystemAudioActive ? "⏹ PC Audio" : "🖥️ PC Audio"}</button>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#f8fafc", border: `1px solid ${isVoiceActive ? "#86efac" : "#e2e8f0"}`, padding: "4px 10px", borderRadius: "6px" }}>
-                  <span style={{ fontSize: "13px" }}>{audioInputActive ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
+                <button type="button" onClick={toggleTestTone} style={{ background: isTestTonePlaying ? "#ef4444" : "#eff6ff", color: isTestTonePlaying ? "#fff" : "#1d4ed8", border: "none", padding: "9px 16px", borderRadius: "8px", fontSize: "14px", fontWeight: "700", cursor: "pointer" }}>{isTestTonePlaying ? "⏹ Stop" : "▶ Play Voice"}</button>
+                <button type="button" onClick={isSystemAudioActive ? stopSystemAudioCapture : startSystemAudioCapture} style={{ background: isSystemAudioActive ? "#dc2626" : "#f0fdf4", color: isSystemAudioActive ? "#fff" : "#166534", border: "1.5px solid #bbf7d0", padding: "9px 16px", borderRadius: "8px", fontSize: "14px", fontWeight: "700", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" }} title="Capture PC Audio">{isSystemAudioActive ? "⏹ PC Audio" : "🖥️ PC Audio"}</button>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#f8fafc", border: `1.5px solid ${isVoiceActive ? "#86efac" : "#cbd5e1"}`, padding: "6px 14px", borderRadius: "10px" }}>
+                  <span style={{ fontSize: "16px" }}>{audioInputActive ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
                   <div>
-                    <span style={{ fontSize: "11px", fontWeight: "700", color: "#0f172a" }}>
-                      {isTestTonePlaying ? "Playing" : isSystemAudioActive ? (isVoiceActive ? "PC Active" : "PC Idle") : micEnabled ? (isVoiceActive ? "Active" : "Open") : "Idle"}
-                    </span>
-                    <span style={{ fontSize: "10px", color: "#64748b", fontWeight: "600", marginLeft: "4px" }}>{liveDb}dB</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a" }}>
+                        {isTestTonePlaying ? "Voice Sample Playing" : isSystemAudioActive ? (isVoiceActive ? "PC Audio Active" : "PC Audio (Idle)") : micEnabled ? (isVoiceActive ? "Voice Active" : "Mic Open") : "Mic Idle"}
+                      </span>
+                      <span style={{ fontSize: "12px", color: isVoiceActive ? "#10b981" : "#64748b", fontWeight: "700" }}>{liveDb} dBFS</span>
+                    </div>
                     {audioInputActive && (
-                      <div style={{ width: "60px", height: "3px", background: "#e2e8f0", borderRadius: "2px", overflow: "hidden", marginTop: "1px" }}>
+                      <div style={{ width: "80px", height: "4px", background: "#e2e8f0", borderRadius: "2px", overflow: "hidden", marginTop: "2px" }}>
                         <div style={{ width: `${volumePercent}%`, height: "100%", background: volumePercent > 80 ? "#ef4444" : "#10b981", transition: "width 0.08s ease" }}></div>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <button type="button" onClick={createMeeting} style={{ background: "#2563eb", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>+ Create Call</button>
-                <input type="text" value={inputMeetingId} onChange={(e) => setInputMeetingId(e.target.value)} placeholder="Room ID" style={{ padding: "5px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px", width: "90px", textTransform: "uppercase", outline: "none" }} />
-                <button type="button" onClick={() => joinMeeting()} style={{ background: "#0f172a", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>Join</button>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <button type="button" onClick={createMeeting} style={{ background: "#2563eb", color: "#fff", border: "none", padding: "9px 18px", borderRadius: "8px", fontSize: "14px", fontWeight: "700", cursor: "pointer", boxShadow: "0 2px 8px rgba(37,99,235,0.2)" }}>+ Create Call</button>
+                <input type="text" value={inputMeetingId} onChange={(e) => setInputMeetingId(e.target.value)} placeholder="Room ID" style={{ padding: "8px 12px", borderRadius: "8px", border: "1.5px solid #cbd5e1", fontSize: "14px", width: "110px", textTransform: "uppercase", outline: "none" }} />
+                <button type="button" onClick={() => joinMeeting()} style={{ background: "#0f172a", color: "#fff", border: "none", padding: "9px 16px", borderRadius: "8px", fontSize: "14px", fontWeight: "700", cursor: "pointer" }}>Join</button>
               </div>
             </section>
           </div>
         )}
 
         {/* MAIN QUALITY REPORT DASHBOARD */}
-        <section style={{ flex: 1, background: "#fff", borderRadius: "12px", padding: "12px 16px", boxShadow: "0 2px 12px rgba(15,23,42,0.03)", border: "1px solid #edf2f7", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+        <section style={{ background: "#fff", borderRadius: "16px", padding: "24px 28px", boxShadow: "0 4px 20px rgba(15,23,42,0.04)", border: "1.5px solid #e2e8f0", display: "flex", flexDirection: "column", gap: "18px" }}>
           {/* Dashboard Title */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px", marginBottom: "10px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <h2 style={{ margin: 0, color: "#0f172a", fontSize: "16px", fontWeight: "800" }}>Live Speech Quality Report</h2>
-              <span style={{ fontSize: "10px", fontWeight: "700", color: "#2563eb", background: "#eff6ff", padding: "1px 6px", borderRadius: "4px" }}>SLIDE 10</span>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", borderBottom: "1.5px solid #f1f5f9", paddingBottom: "14px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <h2 style={{ margin: 0, color: "#0f172a", fontSize: "22px", fontWeight: "800", letterSpacing: "-0.3px" }}>Live Speech Quality Report</h2>
+              <span style={{ fontSize: "12px", fontWeight: "700", color: "#2563eb", background: "#eff6ff", padding: "3px 10px", borderRadius: "6px" }}>SLIDE 10 SPEC</span>
             </div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#ecfdf5", padding: "3px 10px", borderRadius: "9999px", fontSize: "11px", fontWeight: "700", color: "#065f46" }}>
-              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: mlState.isLoaded ? "#10b981" : "#64748b", display: "inline-block" }}></span>
-              {mlState.isLoaded ? `AudioModelCl · ${qcMetrics.latencyMs}ms` : mlState.isLoading ? "Loading…" : "Unavailable"}
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#ecfdf5", padding: "6px 14px", borderRadius: "9999px", fontSize: "13px", fontWeight: "700", color: "#065f46" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: mlState.isLoaded ? "#10b981" : "#64748b", display: "inline-block" }}></span>
+              {mlState.isLoaded ? `SpeechQualityModel (AudioModelCI · ${qcMetrics.latencyMs}ms)` : mlState.isLoading ? "Loading model…" : "Model unavailable"}
             </div>
           </div>
 
-          {/* METRICS GRID: Score + 4 Dials */}
-          <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: "10px", alignItems: "stretch" }}>
-            {/* MOS CARD */}
-            <div style={{ background: "#0f172a", color: "#fff", borderRadius: "10px", padding: "14px 16px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          {/* METRICS GRID: Score + 4 Blue Report Result Boxes */}
+          <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: "16px", alignItems: "stretch" }}>
+            {/* OVERALL MOS CARD */}
+            <div style={{
+              background: "linear-gradient(145deg, #0f172a 0%, #1e3a8a 100%)",
+              color: "#fff",
+              borderRadius: "14px",
+              padding: "24px 22px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              boxShadow: "0 4px 16px rgba(15, 23, 42, 0.12)",
+              border: "1.5px solid #3b82f6"
+            }}>
               <div>
-                <span style={{ fontSize: "10px", fontWeight: "800", letterSpacing: "1px", color: qcMetrics.isSilent && qcMetrics.mosDisplay === "—" ? "#94a3b8" : "#38bdf8", textTransform: "uppercase" }}>
-                  {qcMetrics.mosDisplay !== "—" ? (qcMetrics.isSilent ? "HELD" : "SPEECH QUALITY") : "AWAITING"}
+                <span style={{ fontSize: "12px", fontWeight: "800", letterSpacing: "1.2px", color: qcMetrics.isSilent && qcMetrics.mosDisplay === "—" ? "#94a3b8" : "#38bdf8", textTransform: "uppercase" }}>
+                  {qcMetrics.mosDisplay !== "—" ? (qcMetrics.isSilent ? "SPEECH QUALITY (HELD)" : "OVERALL SPEECH QUALITY") : "AWAITING SPEECH"}
                 </span>
-                <div style={{ display: "flex", alignItems: "baseline", gap: "6px", margin: "4px 0 4px" }}>
-                  <span style={{ fontSize: "42px", fontWeight: "900", lineHeight: 1, color: qcMetrics.isSilent && qcMetrics.mosDisplay === "—" ? "#64748b" : "#fff" }}>{qcMetrics.mosDisplay}</span>
-                  <span style={{ fontSize: "14px", color: "#94a3b8", fontWeight: "600" }}>/ 5.0 MOS</span>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "8px", margin: "10px 0 8px" }}>
+                  <span style={{ fontSize: "56px", fontWeight: "900", lineHeight: 1, color: qcMetrics.isSilent && qcMetrics.mosDisplay === "—" ? "#64748b" : "#fff" }}>{qcMetrics.mosDisplay}</span>
+                  <span style={{ fontSize: "18px", color: "#94a3b8", fontWeight: "600" }}>/ 5.0 MOS</span>
                 </div>
-                <div style={{ display: "inline-block", background: qcMetrics.ratingColor, color: "#fff", fontSize: "10px", fontWeight: "800", padding: "2px 8px", borderRadius: "9999px", marginBottom: "4px" }}>{qcMetrics.ratingText}</div>
-                <div style={{ fontSize: "11px", color: "#cbd5e1", lineHeight: 1.3 }}>{qcMetrics.statusNote}</div>
+                <div style={{ display: "inline-block", background: qcMetrics.ratingColor, color: "#fff", fontSize: "13px", fontWeight: "800", padding: "4px 14px", borderRadius: "9999px", letterSpacing: "0.5px", marginBottom: "8px" }}>{qcMetrics.ratingText}</div>
+                <div style={{ fontSize: "13px", color: "#cbd5e1", lineHeight: 1.5 }}>{qcMetrics.statusNote}</div>
               </div>
-              <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "6px", marginTop: "6px" }}>
-                <div style={{ fontSize: "10px", fontWeight: "800", color: "#38bdf8" }}>SpeechQualityModel (AudioModelCl)</div>
-                <div style={{ fontSize: "10px", color: "#94a3b8", display: "flex", justifyContent: "space-between" }}>
-                  <span>{qcMetrics.isSilent ? "VAD: Listening" : `WASM: ${qcMetrics.latencyMs}ms`}</span>
-                  <span>SNR: {qcMetrics.rawSnr}dB</span>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.15)", paddingTop: "12px", marginTop: "14px" }}>
+                <div style={{ fontSize: "13px", fontWeight: "800", color: "#38bdf8" }}>SpeechQualityModel (AudioModelCI)</div>
+                <div style={{ fontSize: "12px", color: "#94a3b8", display: "flex", justifyContent: "space-between", marginTop: "3px" }}>
+                  <span>{qcMetrics.isSilent ? "VAD: Listening..." : `WASM: ${qcMetrics.latencyMs}ms`}</span>
+                  <span>SNR: {qcMetrics.rawSnr} dB</span>
                 </div>
               </div>
             </div>
 
-            {/* 4 SUB-METRICS */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+            {/* 4 SUB-METRICS: BLUE THEME MATCHED REPORT BOXES */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
               {[
-                ["Microphone", `${liveDb} dBFS`, qcMetrics.micStatus, qcMetrics.micStatusColor, "Peak monitoring"],
-                ["Network", "WebRTC", qcMetrics.networkStatus, qcMetrics.networkColor, "Mesh signaling"],
-                ["Noise", "SNR Floor", qcMetrics.noiseLevel, qcMetrics.noiseLevelColor, "Noise estimation"],
-                ["Clarity", "Formants", qcMetrics.speechClarity, qcMetrics.speechClarityColor, "Spectral band"]
+                ["Microphone", `${liveDb} dBFS`, qcMetrics.micStatus, qcMetrics.micStatusColor, "Peak & overload monitoring"],
+                ["Network", "WebRTC", qcMetrics.networkStatus, qcMetrics.networkColor, "Mesh signaling active"],
+                ["Background Noise", "SNR Floor", qcMetrics.noiseLevel, qcMetrics.noiseLevelColor, "Dynamic noise floor estimation"],
+                ["Speech Clarity", "Formants", qcMetrics.speechClarity, qcMetrics.speechClarityColor, "Spectral band concentration"]
               ].map(([label, badge, value, color, desc]) => (
-                <div key={label} style={{ background: "#f8fafc", borderRadius: "8px", padding: "8px 12px", border: "1px solid #f1f5f9" }}>
+                <div key={label} style={{
+                  background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+                  borderRadius: "0 14px 14px 0",
+                  padding: "16px 20px",
+                  border: "1.5px solid #93c5fd",
+                  borderLeft: "6px solid #2563eb",
+                  boxShadow: "0 2px 8px rgba(37, 99, 235, 0.06)",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between"
+                }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "10px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.6px" }}>{label}</span>
-                    <span style={{ fontSize: "10px", color: "#64748b", fontWeight: "600" }}>{badge}</span>
+                    <span style={{ fontSize: "12px", fontWeight: "800", color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.8px" }}>{label}</span>
+                    <span style={{ fontSize: "12px", color: "#1d4ed8", fontWeight: "700", background: "#dbeafe", padding: "2px 8px", borderRadius: "6px" }}>{badge}</span>
                   </div>
-                  <h3 style={{ margin: "2px 0 1px", fontSize: "15px", fontWeight: "800", color }}>{value}</h3>
-                  <span style={{ fontSize: "10px", color: "#94a3b8" }}>{desc}</span>
+                  <h3 style={{ margin: "6px 0 4px", fontSize: "20px", fontWeight: "800", color }}>{value}</h3>
+                  <span style={{ fontSize: "13px", color: "#334155" }}>{desc}</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* SIDE-BY-SIDE: FFT + TREND */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "10px" }}>
-            <div style={{ background: "#f8fafc", borderRadius: "8px", padding: "8px 12px", border: "1px solid #f1f5f9" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                <span style={{ fontSize: "11px", fontWeight: "800", color: "#0f172a" }}>FFT Spectrum (256-bin)</span>
-                <span style={{ fontSize: "10px", color: isVoiceActive ? "#10b981" : "#64748b", fontWeight: "700" }}>{isVoiceActive ? "🗣️ Active" : "Listening"}</span>
+          {/* FFT SPECTRUM & QUALITY TREND STACKED: QUALITY TREND BAR DOWN TO FFT SPECTRUM */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            {/* 1. FFT SPECTRUM (TOP) */}
+            <div style={{
+              background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+              borderRadius: "0 14px 14px 0",
+              padding: "16px 20px",
+              border: "1.5px solid #93c5fd",
+              borderLeft: "6px solid #2563eb",
+              boxShadow: "0 2px 8px rgba(37, 99, 235, 0.06)"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                <span style={{ fontSize: "15px", fontWeight: "800", color: "#0f172a" }}>Frequency Spectrum (256-bin FFT Analyser)</span>
+                <span style={{ fontSize: "13px", color: isVoiceActive ? "#059669" : "#64748b", fontWeight: "700" }}>{isVoiceActive ? "🗣️ Voice Detected (Active Speech)" : "Listening..."}</span>
               </div>
-              <canvas ref={canvasRef} width="600" height="40" style={{ width: "100%", height: "40px", borderRadius: "6px", background: "#0b1329", display: "block" }} />
+              <canvas ref={canvasRef} width="1200" height="54" style={{ width: "100%", height: "54px", borderRadius: "8px", background: "#0b1329", display: "block" }} />
             </div>
-            <div style={{ background: "#f8fafc", borderRadius: "8px", padding: "8px 12px", border: "1px solid #f1f5f9" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                <span style={{ fontSize: "11px", fontWeight: "800", color: "#0f172a" }}>Quality Trend (10s)</span>
-                <span style={{ fontSize: "10px", color: "#64748b", fontWeight: "700" }}>{qualityTrend.length === 0 ? "Awaiting…" : `Avg: ${(qualityTrend.reduce((a, b) => a + b, 0) / qualityTrend.length).toFixed(1)}`}</span>
+
+            {/* 2. QUALITY TREND ROLLING GRAPH (DOWN TO FFT SPECTRUM) */}
+            <div style={{
+              background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+              borderRadius: "0 14px 14px 0",
+              padding: "16px 20px",
+              border: "1.5px solid #93c5fd",
+              borderLeft: "6px solid #2563eb",
+              boxShadow: "0 2px 8px rgba(37, 99, 235, 0.06)"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                <span style={{ fontSize: "15px", fontWeight: "800", color: "#0f172a" }}>Quality Trend (Rolling 10s History)</span>
+                <span style={{ fontSize: "14px", color: "#1e40af", fontWeight: "700" }}>
+                  {qualityTrend.length === 0 ? "Awaiting speech to record quality trend..." : `Average MOS: ${(qualityTrend.reduce((a, b) => a + b, 0) / qualityTrend.length).toFixed(1)} / 5.0`}
+                </span>
               </div>
-              <div style={{ display: "flex", alignItems: "flex-end", gap: "4px", height: "40px", background: "#fff", padding: "3px 8px", borderRadius: "6px", border: "1px solid #e2e8f0", boxSizing: "border-box" }}>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: "6px", height: "54px", background: "#ffffff", padding: "4px 12px", borderRadius: "8px", border: "1.5px solid #bfdbfe", boxSizing: "border-box" }}>
                 {qualityTrend.length === 0 ? (
-                  <div style={{ width: "100%", textAlign: "center", color: "#94a3b8", fontSize: "10px", alignSelf: "center" }}>🎙️ Speak to record trend</div>
+                  <div style={{ width: "100%", textAlign: "center", color: "#64748b", fontSize: "13px", alignSelf: "center", fontWeight: "500" }}>🎙️ Speak into microphone or play voice demo to record live trend...</div>
                 ) : (
                   qualityTrend.map((score, idx) => {
-                    const barHeight = Math.max(14, (score / 5.0) * 100);
+                    const barHeight = Math.max(16, (score / 5.0) * 100);
                     const color = score >= 4.0 ? "#10b981" : score >= 3.0 ? "#f59e0b" : "#ef4444";
                     return (
                       <div key={idx} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end" }}>
-                        <div style={{ width: "100%", height: `${barHeight}%`, background: color, borderRadius: "2px 2px 0 0", transition: "height 0.25s ease" }}></div>
-                        <span style={{ fontSize: "8px", color: "#94a3b8", marginTop: "1px", fontWeight: "700" }}>{score}</span>
+                        <div style={{ width: "100%", height: `${barHeight}%`, background: color, borderRadius: "3px 3px 0 0", transition: "height 0.25s ease" }}></div>
+                        <span style={{ fontSize: "11px", color: "#475569", marginTop: "2px", fontWeight: "700" }}>{score}</span>
                       </div>
                     );
                   })
@@ -1496,21 +1542,30 @@ function LiveCommunication() {
           </div>
 
           {/* ACOUSTIC SIMULATOR */}
-          <div style={{ marginTop: "10px", background: "#f8fafc", borderRadius: "8px", padding: "8px 14px", border: "1px solid #f1f5f9" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "6px", marginBottom: "6px" }}>
-              <span style={{ color: "#166534", fontSize: "11px", fontWeight: "800" }}>🧪 Acoustic Simulator</span>
+          <div style={{
+            background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
+            borderRadius: "0 14px 14px 0",
+            padding: "16px 20px",
+            border: "1.5px solid #93c5fd",
+            borderLeft: "6px solid #2563eb",
+            boxShadow: "0 2px 8px rgba(37, 99, 235, 0.06)"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
+              <span style={{ color: "#1e40af", fontSize: "14px", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
+                <span>🧪</span> Multi-Condition Acoustic Simulator (Compound Audio Effects)
+              </span>
               {anySimActive && (
-                <button type="button" onClick={resetSimulations} style={{ background: "#fff", color: "#166534", border: "1px solid #bbf7d0", borderRadius: "9999px", padding: "2px 8px", fontSize: "10px", fontWeight: "700", cursor: "pointer" }}>✕ Reset</button>
+                <button type="button" onClick={resetSimulations} style={{ background: "#fff", color: "#1e40af", border: "1.5px solid #93c5fd", borderRadius: "9999px", padding: "4px 12px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>✕ Reset All</button>
               )}
             </div>
-            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               {[
                 ["noise", "Background Noise", simulations.noise, "#d97706", "#b45309"],
                 ["packetLoss", "Packet Loss", simulations.packetLoss, "#dc2626", "#b91c1c"],
                 ["clipping", "Mic Overload", simulations.clipping, "#7f1d1d", "#991b1b"],
                 ["muffled", "Muffled Voice", simulations.muffled, "#4f46e5", "#4338ca"]
               ].map(([key, label, active, activeBg, inactiveColor]) => (
-                <button key={key} type="button" onClick={() => toggleSimulation(key)} style={{ padding: "4px 10px", borderRadius: "9999px", fontSize: "11px", fontWeight: "700", border: "none", cursor: "pointer", background: active ? activeBg : "#fff", color: active ? "#fff" : inactiveColor, boxShadow: "0 1px 2px rgba(0,0,0,0.04)", transition: "all 0.15s ease" }}>
+                <button key={key} type="button" onClick={() => toggleSimulation(key)} style={{ padding: "8px 16px", borderRadius: "9999px", fontSize: "13px", fontWeight: "700", border: "none", cursor: "pointer", background: active ? activeBg : "#fff", color: active ? "#fff" : inactiveColor, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", transition: "all 0.15s ease" }}>
                   {active ? `✓ ${label}` : `+ ${label}`}
                 </button>
               ))}
@@ -1518,10 +1573,10 @@ function LiveCommunication() {
           </div>
         </section>
 
-        {/* PRIVACY FOOTER - inline compact */}
-        <div style={{ marginTop: "6px", padding: "6px 14px", borderRadius: "8px", background: "#f8fafc", border: "1px solid #f1f5f9", borderLeft: "3px solid #2563eb", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-          <span style={{ fontSize: "11px", color: "#64748b" }}>🔒 <strong style={{ color: "#0f172a" }}>Zero-Cloud Privacy</strong> — Audio analyzed entirely in-browser. Raw waveforms never leave your device.</span>
-          <span style={{ fontSize: "10px", fontWeight: "700", color: "#2563eb", background: "#eff6ff", padding: "2px 8px", borderRadius: "9999px", whiteSpace: "nowrap" }}>Client-Side</span>
+        {/* PRIVACY FOOTER */}
+        <div style={{ padding: "12px 20px", borderRadius: "12px", background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)", border: "1.5px solid #93c5fd", borderLeft: "6px solid #2563eb", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "13px", color: "#334155" }}>🔒 <strong style={{ color: "#0f172a" }}>Zero-Cloud Privacy Guarantee</strong> — Audio is captured and scored entirely in-browser. Raw waveforms never leave your device.</span>
+          <span style={{ fontSize: "12px", fontWeight: "700", color: "#1d4ed8", background: "#ffffff", padding: "4px 12px", borderRadius: "9999px", border: "1px solid #bfdbfe", whiteSpace: "nowrap" }}>100% Client-Side</span>
         </div>
 
       </main>
