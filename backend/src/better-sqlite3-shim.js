@@ -96,8 +96,18 @@ class Database {
     }
     if (fs.existsSync(dbPath)) {
       const content = fs.readFileSync(dbPath, 'utf8');
-      if (!content.trim().startsWith('[')) {
-        fs.unlinkSync(dbPath);
+      const trimmed = content.trim();
+      // Never delete an existing file we don't understand (e.g. a real SQLite
+      // database from the older backend) - that would silently wipe every
+      // published deliverable. Refuse to start instead.
+      if (trimmed !== '' && !trimmed.startsWith('[')) {
+        throw new Error(
+          `DB file "${dbPath}" is not in the JSON format this backend uses ` +
+          `(it may be a SQLite database). Move it aside or point DB_PATH at a different file.`
+        );
+      }
+      if (trimmed === '') {
+        fs.writeFileSync(dbPath, '[]');
       }
     }
     if (!fs.existsSync(dbPath)) {
@@ -118,22 +128,19 @@ class Database {
   }
 
   _load() {
-    try {
-      if (fs.existsSync(this.dbPath)) {
-        return JSON.parse(fs.readFileSync(this.dbPath, 'utf8'));
-      }
-    } catch (e) {
-      console.error('Failed to load mock db:', e);
-    }
-    return [];
+    if (!fs.existsSync(this.dbPath)) return [];
+    // Let parse errors propagate: returning [] here would make the next
+    // insert overwrite the whole file with a single record.
+    return JSON.parse(fs.readFileSync(this.dbPath, 'utf8'));
   }
 
   _save(data) {
-    try {
-      fs.writeFileSync(this.dbPath, JSON.stringify(data, null, 2));
-    } catch (e) {
-      console.error('Failed to save mock db:', e);
-    }
+    // Write to a temp file and rename over the original, so a crash mid-write
+    // can never leave a truncated/corrupt database behind. Errors propagate so
+    // the API reports a failure instead of claiming the publish succeeded.
+    const tmpPath = `${this.dbPath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2));
+    fs.renameSync(tmpPath, this.dbPath);
   }
 }
 

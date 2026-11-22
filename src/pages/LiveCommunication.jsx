@@ -50,7 +50,7 @@ function LiveCommunication() {
   const signalChainRef = useRef(Promise.resolve());
   // ICE candidates that arrive before a remote description is set are held here.
   const pendingCandidatesRef = useRef([]);
-  const meetingIdRef = useRef("");
+  const remotePeersKeyRef = useRef("");
 
   // Live Audio Meters (Throttled for 60fps smooth canvas, 10Hz React state)
   const [liveDb, setLiveDb] = useState(-60);
@@ -723,6 +723,8 @@ function LiveCommunication() {
       setIsSystemAudioActive(true);
       setMicEnabled(true);
       micEnabledRef.current = true;
+      // Send the captured PC audio to the other participant instead of the old mic track.
+      syncLocalTrackToPeer();
 
       audioTracks[0].onended = () => {
         stopSystemAudioCapture();
@@ -738,8 +740,13 @@ function LiveCommunication() {
   const stopSystemAudioCapture = async () => {
     if (systemStreamRef.current) {
       systemStreamRef.current.getTracks().forEach((t) => t.stop());
+      if (localStreamRef.current === systemStreamRef.current) {
+        // Don't leave a stopped stream behind; "Enable Mic" will request a fresh one.
+        localStreamRef.current = null;
+      }
       systemStreamRef.current = null;
     }
+    syncLocalTrackToPeer();
     setIsSystemAudioActive(false);
     setMicEnabled(false);
     micEnabledRef.current = false;
@@ -838,15 +845,7 @@ function LiveCommunication() {
       // Handle local ICE candidates and send to backend
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          fetch(`${API_BASE_URL}/api/meeting/signal`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              meetingId: roomId,
-              senderId: userIdRef.current,
-              signalData: { type: "ice-candidate", candidate: event.candidate },
-            }),
-          }).catch(() => {});
+          sendSignal(roomId, { type: "ice-candidate", candidate: event.candidate.toJSON() });
         }
       };
 
@@ -854,51 +853,66 @@ function LiveCommunication() {
       if (isInitiator) {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        fetch(`${API_BASE_URL}/api/meeting/signal`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            meetingId: roomId,
-            senderId: userIdRef.current,
-            signalData: { type: "offer", sdp: offer },
-          }),
-        }).catch(() => {});
+        sendSignal(roomId, { type: "offer", sdp: { type: offer.type, sdp: offer.sdp } });
       }
+      return pc;
     } catch (err) {
       console.warn("WebRTC initialization warning:", err);
+      return null;
     }
   };
 
   const handleIncomingSignal = async (signal, roomId) => {
-    const pc = peerConnectionRef.current;
-    if (!pc || !signal || !signal.signalData) return;
-
+    if (!signal || !signal.signalData) return;
     const { type, sdp, candidate } = signal.signalData;
 
     try {
       if (type === "offer") {
+        // A new offer means the host (re)started negotiation. If we have no
+        // connection, or one that already finished a previous negotiation,
+        // start fresh so we never apply an offer to a stale connection.
+        let pc = peerConnectionRef.current;
+        if (!pc || pc.signalingState !== "stable" || pc.remoteDescription) {
+          pc = await initWebRTC(roomId, false);
+          if (!pc) return;
+        }
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        // Make the audio channel two-way so a mic enabled later can be swapped in.
+        pc.getTransceivers().forEach((t) => {
+          if (t.receiver.track && t.receiver.track.kind === "audio" && t.direction !== "stopped") {
+            t.direction = "sendrecv";
+          }
+        });
+        syncLocalTrackToPeer();
+        await flushPendingCandidates(pc);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        fetch(`${API_BASE_URL}/api/meeting/signal`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            meetingId: roomId,
-            senderId: userIdRef.current,
-            signalData: { type: "answer", sdp: answer },
-          }),
-        }).catch(() => {});
+        sendSignal(roomId, { type: "answer", sdp: { type: answer.type, sdp: answer.sdp } });
       } else if (type === "answer") {
-        if (pc.signalingState !== "stable") {
+        const pc = peerConnectionRef.current;
+        if (pc && pc.signalingState === "have-local-offer") {
           await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+          await flushPendingCandidates(pc);
         }
       } else if (type === "ice-candidate" && candidate) {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+        const pc = peerConnectionRef.current;
+        if (pc && pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } else {
+          // Remote description not applied yet: hold until it is.
+          pendingCandidatesRef.current.push(candidate);
+        }
       }
     } catch (sigErr) {
       console.warn("Signal processing error:", sigErr);
     }
+  };
+
+  // Queue a signal behind all previously received ones so they apply in order.
+  const enqueueSignal = (signal, roomId) => {
+    signalChainRef.current = signalChainRef.current
+      .then(() => handleIncomingSignal(signal, roomId))
+      .catch(() => {});
   };
 
   /* =====================================================
@@ -906,6 +920,9 @@ function LiveCommunication() {
   ===================================================== */
   const startRoomSignaling = (roomId, isHost = false) => {
     const cleanId = roomId.trim().toUpperCase();
+    remotePeersKeyRef.current = "";
+    signalChainRef.current = Promise.resolve();
+    pendingCandidatesRef.current = [];
 
     // 1. Join Meeting on Backend
     fetch(`${API_BASE_URL}/api/meeting/join`, {
@@ -928,9 +945,8 @@ function LiveCommunication() {
         if (data.participants) {
           setPeerCount(data.participantCount || 1);
           setPeerList(data.participants);
-          if (data.participantCount > 1) {
-            initWebRTC(cleanId, isHost);
-          }
+          // Connections are created by the poll loop (host) or on the first
+          // incoming offer (peer), so nothing to start here.
         }
       })
       .catch((err) => {
@@ -951,21 +967,30 @@ function LiveCommunication() {
             setPeerCount(data.participantCount || 1);
             setPeerList(data.participants);
 
-            // If 2nd person joined and we don't have peerConnection yet
-            if (data.participantCount > 1 && !peerConnectionRef.current) {
-              initWebRTC(cleanId, isHost);
+            const othersKey = data.participants
+              .map((p) => p.userId)
+              .filter((id) => id !== userIdRef.current)
+              .sort()
+              .join(",");
+            const othersChanged = othersKey !== remotePeersKeyRef.current;
+            remotePeersKeyRef.current = othersKey;
+
+            if (data.participantCount <= 1 && peerConnectionRef.current) {
+              // The other participant left: drop the dead connection so a
+              // fresh one is negotiated when someone joins again.
+              closePeerConnection();
+            } else if (data.participantCount > 1 && isHost && (othersChanged || !peerConnectionRef.current)) {
+              // Host drives negotiation (and re-negotiates when the other side
+              // changes, e.g. a peer refreshes). The peer builds its connection
+              // when the offer arrives.
+              initWebRTC(cleanId, true);
             }
           }
 
-          // Process incoming WebRTC signals
+          // Process incoming WebRTC signals strictly in order. The server hands
+          // each signal out exactly once, so no client-side de-duplication is needed.
           if (data.signals && data.signals.length > 0) {
-            data.signals.forEach((sig) => {
-              const sigKey = `${sig.senderId}_${sig.timestamp}`;
-              if (!processedSignalsRef.current.has(sigKey)) {
-                processedSignalsRef.current.add(sigKey);
-                handleIncomingSignal(sig, cleanId);
-              }
-            });
+            data.signals.forEach((sig) => enqueueSignal(sig, cleanId));
           }
         })
         .catch(() => {});
@@ -977,10 +1002,7 @@ function LiveCommunication() {
       clearInterval(pollTimerRef.current);
       pollTimerRef.current = null;
     }
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
+    closePeerConnection();
     if (roomId) {
       fetch(`${API_BASE_URL}/api/meeting/leave`, {
         method: "POST",
@@ -990,7 +1012,8 @@ function LiveCommunication() {
     }
     setPeerCount(1);
     setPeerList([]);
-    processedSignalsRef.current.clear();
+    remotePeersKeyRef.current = "";
+    signalChainRef.current = Promise.resolve();
   };
 
   /* =====================================================
@@ -1025,6 +1048,7 @@ function LiveCommunication() {
       localStreamRef.current = stream;
       setMicEnabled(true);
       micEnabledRef.current = true;
+      syncLocalTrackToPeer();
       await startAudioDSP(stream);
       return stream;
     } catch (err) {
@@ -1085,6 +1109,9 @@ function LiveCommunication() {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
+    pendingCandidatesRef.current = [];
+    remotePeersKeyRef.current = "";
+    signalChainRef.current = Promise.resolve();
     if (meetingId) {
       fetch(`${API_BASE_URL}/api/meeting/leave`, {
         method: "POST",
@@ -1261,6 +1288,10 @@ function LiveCommunication() {
       {/* Hidden audio element for receiving peer audio stream */}
       <audio ref={remoteAudioRef} autoPlay style={{ display: "none" }} />
 
+      {/* Hidden file picker for "Upload Audio File". Rendered outside the
+          in-call / standalone branches so it works in both views. */}
+      <input ref={fileInputRef} type="file" accept="audio/*" onChange={handleCustomFileUpload} style={{ display: "none" }} />
+
       <main style={{ flex: 1, maxWidth: "1520px", width: "100%", margin: "0 auto", padding: "8px 24px 6px", boxSizing: "border-box", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* ERROR / WARNING BANNER */}
@@ -1348,7 +1379,6 @@ function LiveCommunication() {
                   {DEMO_VOICE_OPTIONS.map((opt) => (<option key={opt.id} value={opt.id}>{opt.id === "custom" && customAudioName ? `📂 ${customAudioName}` : opt.label}</option>))}
                 </select>
                 <button type="button" onClick={toggleTestTone} style={{ background: isTestTonePlaying ? "#ef4444" : "#eff6ff", color: isTestTonePlaying ? "#fff" : "#1d4ed8", border: "none", padding: "5px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>{isTestTonePlaying ? "⏹ Stop" : "▶ Play Voice"}</button>
-                <input ref={fileInputRef} type="file" accept="audio/*" onChange={handleCustomFileUpload} style={{ display: "none" }} />
                 <button type="button" onClick={isSystemAudioActive ? stopSystemAudioCapture : startSystemAudioCapture} style={{ background: isSystemAudioActive ? "#dc2626" : "#f0fdf4", color: isSystemAudioActive ? "#fff" : "#166534", border: "1px solid #dcfce7", padding: "5px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: "700", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }} title="Capture PC Audio">{isSystemAudioActive ? "⏹ PC Audio" : "🖥️ PC Audio"}</button>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#f8fafc", border: `1px solid ${isVoiceActive ? "#86efac" : "#e2e8f0"}`, padding: "4px 10px", borderRadius: "6px" }}>
                   <span style={{ fontSize: "13px" }}>{audioInputActive ? (isVoiceActive ? "🗣️" : "🎙️") : "🔇"}</span>
