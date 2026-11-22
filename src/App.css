@@ -399,16 +399,16 @@ a {
 }
 
 /* =========================================================
-   PROJECT SECTIONS & CARDS - FULL SCREEN & MATCHING HOMEPAGE
+   PROJECT SECTIONS & CARDS - SIGNATURE LIGHT BLUE THEME
    ========================================================= */
 
 .project-section {
   margin-bottom: 50px;
-  background: #ffffff;
-  border: 1.5px solid #e2e8f0;
+  background: #f0f7ff;
+  border: 1.5px solid #bfdbfe;
   border-radius: 20px;
   padding: 48px 56px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.06);
 }
 
 .project-section > h2 {
@@ -417,25 +417,26 @@ a {
   font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.5px;
-  border-bottom: 2px solid #f1f5f9;
+  border-bottom: 2px solid #bfdbfe;
   padding-bottom: 16px;
 }
 
 .blue-box {
-  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
-  border: 1.5px solid #dbeafe;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1.5px solid #93c5fd;
   border-left: 6px solid #2563eb;
   border-radius: 0 16px 16px 0;
   padding: 32px 40px;
-  color: #1e293b;
+  color: #0f172a;
   font-size: 20px;
   line-height: 1.8;
   font-weight: 500;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.05);
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.08);
 }
 
 .blue-box p {
   margin: 0;
+  color: #1e293b;
 }
 
 .blue-box ul {
@@ -459,21 +460,21 @@ a {
 }
 
 .project-card {
-  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
-  border: 1.5px solid #dbeafe;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1.5px solid #93c5fd;
   border-left: 6px solid #2563eb;
   border-radius: 0 16px 16px 0;
   padding: 32px 30px;
   transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.05);
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.08);
   display: flex;
   flex-direction: column;
 }
 
 .project-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.14);
-  border-color: #bfdbfe;
+  box-shadow: 0 16px 32px rgba(37, 99, 235, 0.16);
+  border-color: #60a5fa;
   border-left-color: #1d4ed8;
 }
 
@@ -494,7 +495,7 @@ a {
 
 .project-card p {
   margin: 0;
-  color: #334155;
+  color: #1e293b;
   font-size: 18px;
   line-height: 1.7;
   font-weight: 500;
