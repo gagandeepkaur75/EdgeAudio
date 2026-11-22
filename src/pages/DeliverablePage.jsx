@@ -4,8 +4,10 @@ import { api } from "../utils/api";
 import Planning from "./planning";
 import PageNav from "../components/PageNav";
 
-export default function DeliverablePage() {
-  const { slug } = useParams();
+export default function DeliverablePage({ slug: slugProp }) {
+  // Static routes like /planning-v1 have no :slug param, so they pass it as a prop.
+  const params = useParams();
+  const slug = slugProp ?? params.slug;
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
