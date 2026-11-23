@@ -1,6 +1,6 @@
 # EdgeAudio-QC
 
-Privacy-preserving speech quality estimation in the browser (UCS503 Software Project).
+Privacy-preserving speech quality estimation in the browser (Software Engineering Project).
 
 A small neural model runs **on the user's device** (ONNX Runtime Web / WebAssembly) and estimates
 perceived speech quality (a MOS-style 1–5 score) plus diagnostics (noise, clipping, muffling,
@@ -14,7 +14,7 @@ dropouts, wind) from rolling 2-second audio windows. Raw audio never leaves the 
 | `src/utils/mlAudioAnalyzer.js` | In-browser pipeline: 16 kHz resampling, feature extraction (80 log-mel + 5 spectral features), ONNX inference, smoothing |
 | `src/pages/LiveCommunication.jsx` | Live test page: mic / demo voice / PC audio capture, condition simulator, 2-person WebRTC call |
 | `public/models/` | Model and feature files the browser loads (`model.onnx`, `mel_basis.json`, `norm_stats.json`) |
-| `public/audio/` | Demo voice clips |
+| `public/audio/` | Demo voice clips (built by `ml/make_demo_voices.py` from the CMU ARCTIC corpus) |
 | `backend/` | Express API: admin auth, uploads, versioned deliverable publishing, WebRTC signaling — see `backend/README.md` |
 | `ml/` | Python training pipeline (dataset generation, teacher labels, model, training, ONNX export, tests). Paths are defined in `ml/paths.py` |
 
@@ -53,3 +53,9 @@ python ml/test_suite.py            # evaluation + JS/Python feature-parity check
 
 Note: training labels come from `ml/teacher.py`, a heuristic quality score computed from the
 known degradations applied to clean speech, not from human listening tests.
+
+## Credits
+
+The demo voices on the Live Test page are built from the
+[CMU ARCTIC](http://festvox.org/cmu_arctic/) speech databases (speakers `bdl` and `slt`),
+Language Technologies Institute, Carnegie Mellon University, used under their free-use license.

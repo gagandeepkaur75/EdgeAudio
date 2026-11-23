@@ -152,7 +152,7 @@ export class MLAudioAnalyzer {
     this.modelPath = modelPath;
 
     try {
-      console.log(`[ML Audio QC] Initializing AudioModelCl SpeechQualityModel...`);
+      console.log(`[ML Audio QC] Initializing SpeechQualityModel...`);
       const t0 = performance.now();
 
       // 1. Fetch Mel Basis and Normalization Constants
@@ -375,7 +375,7 @@ export class MLAudioAnalyzer {
   }
 
   /**
-   * Exact Feature Extraction matching Python features.py and AudioModelCl
+   * Exact Feature Extraction matching Python features.py
    * Input: 32,000 float32 samples (2.0s at 16kHz)
    * Output: Float32Array of shape [201, 85]
    */
@@ -493,7 +493,7 @@ export class MLAudioAnalyzer {
   }
 
   /**
-   * Runs neural inference on current 32,000 sample window using AudioModelCl.
+   * Runs neural inference on the current 32,000 sample window.
    */
   async predict() {
     if (!this.isReady || !this.session || !this.melBasis || !this.normStats) {
@@ -538,7 +538,7 @@ export class MLAudioAnalyzer {
       const output = await this.session.run(feeds);
       const latency = performance.now() - t0;
 
-      // Parse outputs from AudioModelCl
+      // Parse model outputs
       // mos: [1, 1], voice_prob: [1, 1], diagnostics: [1, 5] (noise, clip, muffle, dropout, wind)
       const rawMos = output.mos ? output.mos.data[0] : 4.5;
       const voiceProb = output.voice_prob ? output.voice_prob.data[0] : 1.0;

@@ -1,6 +1,6 @@
 import LiveCommunication from "./pages/LiveCommunication";
 import "./App.css";
-import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 
 function ScrollToTop() {
@@ -15,6 +15,7 @@ import Home from "./Home";
 import AdminPage from "./pages/AdminPage";
 import DeliverablePage from "./pages/DeliverablePage";
 import DeliverablesHistoryPage from "./pages/DeliverablesHistoryPage";
+import FinalPresentationPage from "./pages/FinalPresentationPage";
 import PageNav from "./components/PageNav";
 
 function Page({ children }) {
@@ -189,48 +190,6 @@ function Team() {
           </div>
         ))}
       </div>
-    </Page>
-  );
-}
-
-function PlanningV2() {
-  return (
-    <Page>
-      <div className="page-title">
-        <span>PLANNING PRESENTATION</span>
-        <h1>Planning Presentation V2</h1>
-        <p>A separate version of the project plan will be maintained here if the plan changes after V1.</p>
-      </div>
-
-      <div className="version-banner">
-        <div><strong>Version:</strong> V2</div>
-        <div><strong>Date:</strong> To be updated</div>
-        <div><strong>Authors:</strong> EdgeAudio-QC Team</div>
-      </div>
-
-      <section className="project-section">
-        <h2>Change Summary</h2>
-        <div className="blue-box">
-          <p>
-            Changes made from Planning V1 will be recorded here.
-            Previous versions will remain accessible and will not be overwritten.
-          </p>
-        </div>
-      </section>
-
-      <section className="project-section">
-        <h2>Version History</h2>
-        <div className="version-list">
-          <Link to="/planning-v1" className="version-item">
-            <strong>Planning V1</strong>
-            <span>Initial planning presentation</span>
-          </Link>
-          <div className="version-item current">
-            <strong>Planning V2</strong>
-            <span>Current version</span>
-          </div>
-        </div>
-      </section>
     </Page>
   );
 }
@@ -433,7 +392,7 @@ function App() {
         <Route path="/live-test" element={<LiveCommunication />} />
         <Route path="/planning" element={<DeliverablePage slug="planning-v1" />} />
         <Route path="/planning-v1" element={<DeliverablePage slug="planning-v1" />} />
-        <Route path="/planning-v2" element={<DeliverablePage slug="planning-v2" fallback={<PlanningV2 />} />} />
+        <Route path="/final-presentation" element={<FinalPresentationPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/deliverables" element={<DeliverablesHistoryPage />} />
         <Route path="/:slug" element={<DeliverablePage />} />

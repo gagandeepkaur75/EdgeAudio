@@ -58,15 +58,19 @@ export default function AdminPage() {
     }
   };
 
+  const [signingIn, setSigningIn] = useState(false);
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError("");
+    setSigningIn(true);
     try {
       await api.login(username, password);
+      setPassword("");
       setIsLoggedIn(true);
-      setLoginError("");
     } catch (err) {
-      setLoginError(err.message || "Invalid credentials");
+      setLoginError(err.message === "Failed to fetch" ? "Could not reach the server. Please try again later." : err.message || "Invalid credentials");
+    } finally {
+      setSigningIn(false);
     }
   };
 
@@ -224,33 +228,38 @@ export default function AdminPage() {
             <p>Access the administrative panel to upload and publish official project deliverables.</p>
           </div>
 
-          <section className="project-section">
-            <div className="admin-login" style={{ maxWidth: "450px", margin: "0 auto" }}>
-              <h2>Admin Sign In</h2>
-              {loginError && <div className="alert-error" style={{ marginBottom: "1rem" }}>{loginError}</div>}
-              <form onSubmit={handleLogin}>
-                <label>Username</label>
-                <input
-                  type="text"
-                  placeholder="Admin username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
-                <label>Password</label>
-                <input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-                <button className="navy-button" type="submit" style={{ marginTop: "1rem", width: "100%" }}>
-                  Sign In
-                </button>
-              </form>
-            </div>
-          </section>
+          <div className="admin-login">
+            <div className="admin-login-icon" aria-hidden="true">🔒</div>
+            <h2>Admin Sign In</h2>
+            <p className="admin-login-sub">Team members and instructors only.</p>
+            {loginError && <div className="alert-error admin-login-error" role="alert">{loginError}</div>}
+            <form onSubmit={handleLogin} className="admin-login-form">
+              <label htmlFor="admin-username">Username</label>
+              <input
+                id="admin-username"
+                type="text"
+                placeholder="Admin username"
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                autoFocus
+              />
+              <label htmlFor="admin-password">Password</label>
+              <input
+                id="admin-password"
+                type="password"
+                placeholder="Password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button className="navy-button" type="submit" disabled={signingIn}>
+                {signingIn ? "Signing in…" : "Sign In"}
+              </button>
+            </form>
+          </div>
         </main>
       </div>
     );
@@ -384,6 +393,7 @@ export default function AdminPage() {
                 >
                   <option value="planning">Planning Presentation</option>
                   <option value="midsem">Midsem Presentation</option>
+                  <option value="final-presentation">Final Presentation</option>
                   <option value="final-demo">Final Demo</option>
                   <option value="other">Other Deliverable</option>
                 </select>

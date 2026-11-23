@@ -36,12 +36,12 @@ a {
   background: #ffffff;
 }
 
-/* SIDEBAR NAVIGATION - WIDE & CLEAN */
+/* SIDEBAR NAVIGATION - same items and colours as the top menu (PageNav) */
 .side-nav {
   width: 320px;
   min-height: 100vh;
-  background: #0f172a;
-  color: #ffffff;
+  background: #e8eef6;
+  color: #0f172a;
   position: fixed;
   left: 0;
   top: 0;
@@ -51,33 +51,35 @@ a {
   padding: 44px 30px;
   box-sizing: border-box;
   z-index: 100;
-  border-right: 1px solid #1e293b;
+  border-right: 1px solid #d3dceb;
+  box-shadow: 2px 0 16px rgba(15, 23, 42, 0.06);
 }
 
 .side-brand-name {
+  display: inline-block;
   font-size: 32px;
   font-weight: 800;
   letter-spacing: -0.5px;
-  color: #ffffff;
+  color: #0f172a;
 }
 
 .side-brand-name span {
-  color: #38bdf8;
+  color: #2563eb;
 }
 
 .side-brand p {
   margin-top: 12px;
-  color: #94a3b8;
+  color: #64748b;
   font-size: 15px;
   line-height: 1.6;
   font-weight: 400;
 }
 
 .side-menu {
-  margin-top: 48px;
+  margin-top: 40px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
   overflow-y: auto;
 }
@@ -86,42 +88,42 @@ a {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 13px 18px;
-  border-radius: 10px;
-  color: #cbd5e1;
+  padding: 12px 18px;
+  border-radius: 8px;
+  border-left: 4px solid transparent;
+  color: #475569;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   transition: all 0.15s ease;
 }
 
 .side-link span {
   font-size: 13px;
-  color: #38bdf8;
+  color: #94a3b8;
   font-weight: 700;
   width: 24px;
 }
 
 .side-link:hover {
-  background: #1e293b;
-  color: #ffffff;
-  transform: translateX(4px);
+  background: #dbe4f0;
+  color: #0f172a;
 }
 
 .side-link.active {
-  background: #1e293b;
-  color: #ffffff;
-  font-weight: 600;
-  border-left: 4px solid #38bdf8;
+  background: #ffffff;
+  color: #2563eb;
+  font-weight: 700;
+  border-left-color: #2563eb;
 }
 
 .side-link.active span {
-  color: #38bdf8;
+  color: #2563eb;
 }
 
 .side-footer {
   margin-top: auto;
   padding-top: 24px;
-  border-top: 1px solid #1e293b;
+  border-top: 1px solid #d3dceb;
   color: #64748b;
   font-size: 14px;
   line-height: 1.6;
@@ -271,18 +273,6 @@ a {
   border-color: #94a3b8;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.admin-btn {
-  background: #f8fafc;
-  color: #475569;
-  border: 1.5px solid #e2e8f0;
-}
-
-.admin-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-color: #cbd5e1;
 }
 
 /* =========================================================
@@ -512,23 +502,25 @@ a {
   width: 100%;
 }
 
-/* TEAM BOXES COLORED IN THE SIGNATURE BLUE */
+/* TEAM BOXES - soft light blue, matching the other content cards */
 .team-card-new {
-  background: linear-gradient(145deg, #1d4ed8 0%, #2563eb 100%);
-  border: 1.5px solid #1d4ed8;
+  background: linear-gradient(160deg, #f8fbff 0%, #eef5ff 100%);
+  border: 1.5px solid #dbeafe;
+  border-top: 5px solid #2563eb;
   border-radius: 20px;
-  padding: 48px 38px;
-  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.25);
+  padding: 44px 36px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
   transition: all 0.25s ease;
   display: flex;
   flex-direction: column;
-  min-height: 400px;
+  min-height: 380px;
   box-sizing: border-box;
 }
 
 .team-card-new:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 20px 40px rgba(37, 99, 235, 0.45);
+  transform: translateY(-6px);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.12);
+  border-color: #bfdbfe;
 }
 
 .team-card-new > span {
@@ -538,7 +530,7 @@ a {
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.22);
+  background: #2563eb;
   color: #ffffff;
   font-weight: 800;
   font-size: 16px;
@@ -549,27 +541,27 @@ a {
   margin: 0 0 10px;
   font-size: 32px;
   font-weight: 800;
-  color: #ffffff;
+  color: #0f172a;
   letter-spacing: -0.5px;
 }
 
 .team-card-new h3 {
   margin: 0 0 24px;
-  font-size: 20px;
-  font-weight: 600;
-  color: #dbeafe;
+  font-size: 19px;
+  font-weight: 700;
+  color: #1d4ed8;
 }
 
 .team-card-new p {
   margin: 0;
-  color: #ffffff;
-  font-size: 17px;
+  color: #334155;
+  font-size: 16px;
   line-height: 1.7;
   font-weight: 500;
-  background: rgba(0, 0, 0, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #ffffff;
+  border: 1px solid #dbeafe;
   border-radius: 12px;
-  padding: 20px 24px;
+  padding: 18px 22px;
   margin-top: auto;
 }
 
@@ -913,6 +905,87 @@ a {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
 }
 
+/* Sign-in card on the Admin page */
+.admin-login-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  font-size: 24px;
+}
+
+.admin-login h2 {
+  margin: 0;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.admin-login-sub {
+  margin: 6px 0 28px;
+  text-align: center;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.admin-login-error {
+  margin-bottom: 18px;
+}
+
+.admin-login-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-login-form label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.admin-login-form input {
+  width: 100%;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 16px;
+  font-family: inherit;
+  color: #0f172a;
+  background: #ffffff;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-login-form input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.admin-login-form .navy-button {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.navy-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .admin-login {
+    padding: 32px 22px;
+  }
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -1000,6 +1073,8 @@ a {
     min-height: auto;
     position: static;
     padding: 28px;
+    border-right: none;
+    border-bottom: 1px solid #d3dceb;
   }
 
   .home-main {

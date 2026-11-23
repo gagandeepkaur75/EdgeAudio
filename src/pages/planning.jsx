@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import "./planning.css";
 
 const slides = [
@@ -9,6 +10,7 @@ const slides = [
   "Target Users",
   "System Features",
   "Interfaces",
+  "Website Screens",
   "Performance Goals",
   "Evaluation Baselines",
   "Security Measures",
@@ -19,6 +21,13 @@ const slides = [
   "Milestones",
   "Conclusion",
   "References",
+];
+
+const screens = [
+  { src: "/screenshots/home.jpg", route: "/", title: "Home", text: "Project overview with the shared site menu and quick links to both presentations." },
+  { src: "/screenshots/live-test.jpg", route: "/live-communication", title: "Live Test", text: "On-device score, problem cards and the live oscilloscope while a demo voice plays." },
+  { src: "/screenshots/architecture.jpg", route: "/architecture", title: "Architecture", text: "How audio flows from the microphone through the browser model to the result." },
+  { src: "/screenshots/final-presentation.jpg", route: "/final-presentation", title: "Final Presentation", text: "Full-screen web slides that present the finished system and its measured results." },
 ];
 
 const ganttTasks = [
@@ -52,14 +61,14 @@ function Planning() {
         {/* 01 TITLE */}
         <Slide number={1} className="title-slide">
           <div className="title-content">
-            <p className="project-kicker">UCS503 SOFTWARE PROJECT</p>
+            <p className="project-kicker">SOFTWARE ENGINEERING PROJECT</p>
             <h1>EdgeAudio<span>-QC</span></h1>
             <p className="title-subtitle">Privacy-Preserving Speech Quality Estimation</p>
           </div>
         </Slide>
 
         {/* 02 CONTENTS */}
-        <Slide number={2} eyebrow="PLANNING PRESENTATION V1" title="Table of Contents">
+        <Slide number={2} eyebrow="PLANNING PRESENTATION" title="Table of Contents">
           <div className="toc-grid">
             {slides.slice(2).map((name, index) => (
               <button key={name} onClick={() => document.getElementById(`slide-${index + 3}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}>
@@ -243,7 +252,7 @@ function Planning() {
             <article>
               <span className="card-label">User Interface (UI)</span>
               <p>
-                Homepage and navigation; Planning Presentation V1; live test
+                Homepage and navigation; Planning Presentation; live test
                 interface; microphone permission flow; processing status;
                 quality result display.
               </p>
@@ -266,8 +275,24 @@ function Planning() {
           </div>
         </Slide>
 
-        {/* 09 PERFORMANCE */}
-        <Slide number={9} eyebrow="07 — PERFORMANCE GOALS" title="Initial Technical Targets">
+        {/* 09 WEBSITE SCREENS */}
+        <Slide number={9} eyebrow="06 — INTERFACES" title="Website Screens">
+          <div className="screens-grid">
+            {screens.map((shot) => (
+              <Link key={shot.src} className="screen-card" to={shot.route}>
+                <div className="screen-frame">
+                  <span className="screen-dots" aria-hidden="true"><i /><i /><i /></span>
+                  <img src={shot.src} alt={`${shot.title} page of the EdgeAudio-QC website`} loading="lazy" />
+                </div>
+                <h3>{shot.title}</h3>
+                <p>{shot.text}</p>
+              </Link>
+            ))}
+          </div>
+        </Slide>
+
+        {/* 10 PERFORMANCE */}
+        <Slide number={10} eyebrow="07 — PERFORMANCE GOALS" title="Initial Technical Targets">
           <div className="metric-grid">
             {[
               ["Browser", "Google Chrome stable, version 151 or later."],
@@ -285,8 +310,8 @@ function Planning() {
           </div>
         </Slide>
 
-        {/* 10 BASELINES */}
-        <Slide number={10} eyebrow="07 — PERFORMANCE GOALS" title="Evaluation Baselines & Metrics">
+        {/* 11 BASELINES */}
+        <Slide number={11} eyebrow="07 — PERFORMANCE GOALS" title="Evaluation Baselines & Metrics">
           <div className="baseline-grid">
             {[
               ["DNSMOS", "No-reference speech-quality estimation baseline."],
@@ -305,8 +330,8 @@ function Planning() {
           </div>
         </Slide>
 
-        {/* 11 SECURITY */}
-        <Slide number={11} eyebrow="08 — SECURITY MEASURES" title="Security & Privacy">
+        {/* 12 SECURITY */}
+        <Slide number={12} eyebrow="08 — SECURITY MEASURES" title="Security & Privacy">
           <div className="security-grid">
             {[
               ["Security Overview", "Privacy-preserving local speech processing and controlled access to project administration."],
@@ -322,8 +347,8 @@ function Planning() {
           </div>
         </Slide>
 
-        {/* 12 QUALITY */}
-        <Slide number={12} eyebrow="09 — QUALITY ATTRIBUTES" title="Reliability, Usability & Maintainability">
+        {/* 13 QUALITY */}
+        <Slide number={13} eyebrow="09 — QUALITY ATTRIBUTES" title="Reliability, Usability & Maintainability">
           <div className="quality-grid">
             {[
               ["Reliability", "Use rolling-window processing, temporal smoothing, controlled evaluation and performance monitoring to make live estimates stable and repeatable."],
@@ -339,8 +364,8 @@ function Planning() {
           </div>
         </Slide>
 
-        {/* 13 FEASIBILITY */}
-        <Slide number={13} eyebrow="10 — INITIAL PLANNING" title="First Feasibility Experiment • Weeks 1–2">
+        {/* 14 FEASIBILITY */}
+        <Slide number={14} eyebrow="10 — INITIAL PLANNING" title="First Feasibility Experiment • Weeks 1–2">
           <div className="feasibility-hero">
             <span className="card-label">Core Feasibility Requirement</span>
             <h3>
@@ -371,8 +396,8 @@ function Planning() {
           </div>
         </Slide>
 
-        {/* 14 RISKS */}
-        <Slide number={14} eyebrow="10 — INITIAL PLANNING" title="Technical Risks & Expected Challenges">
+        {/* 15 RISKS */}
+        <Slide number={15} eyebrow="10 — INITIAL PLANNING" title="Technical Risks & Expected Challenges">
           <div className="risk-grid">
             {[
               ["Browser Inference", "Inference may be slower than expected."],
@@ -400,8 +425,8 @@ function Planning() {
           </div>
         </Slide>
 
-        {/* 15 GANTT */}
-        <Slide number={15} eyebrow="10 — INITIAL PLANNING" title="17-Week Development Roadmap">
+        {/* 16 GANTT */}
+        <Slide number={16} eyebrow="10 — INITIAL PLANNING" title="17-Week Development Roadmap">
           <div className="gantt-wrap">
             <div className="gantt-header">
               <div className="gantt-task-heading">Task</div>
@@ -444,8 +469,8 @@ function Planning() {
           </div>
         </Slide>
 
-        {/* 16 MILESTONES */}
-        <Slide number={16} eyebrow="10 — INITIAL PLANNING" title="Milestones & Phase Outputs">
+        {/* 17 MILESTONES */}
+        <Slide number={17} eyebrow="10 — INITIAL PLANNING" title="Milestones & Phase Outputs">
           <div className="milestone-grid">
             {[
               ["Weeks 1–2", "Feasibility baseline", "Browser execution + performance measurements"],
@@ -465,8 +490,8 @@ function Planning() {
           </div>
         </Slide>
 
-        {/* 17 CONCLUSION */}
-        <Slide number={17} eyebrow="11 — CONCLUSION" title="Conclusion">
+        {/* 18 CONCLUSION */}
+        <Slide number={18} eyebrow="11 — CONCLUSION" title="Conclusion">
           <div className="conclusion-grid">
             <article>
               <span className="card-label">Summary</span>
@@ -496,10 +521,10 @@ function Planning() {
           </div>
         </Slide>
 
-        {/* 18 REFERENCES */}
-        <Slide number={18} eyebrow="12 — REFERENCES" title="References">
+        {/* 19 REFERENCES */}
+        <Slide number={19} eyebrow="12 — REFERENCES" title="References">
           <div className="references">
-            <p>• UCS503 Planning Presentation template provided for the project planning presentation.</p>
+            <p>• Software Engineering Project planning presentation template provided for the project planning presentation.</p>
             <p>• DNSMOS — Deep Noise Suppression Mean Opinion Score, used as a no-reference speech-quality baseline.</p>
             <p>• NISQA — Non-Intrusive Speech Quality Assessment, used as an evaluation baseline.</p>
             <p>• LibriSpeech — speech dataset referenced for speech-processing experimentation.</p>

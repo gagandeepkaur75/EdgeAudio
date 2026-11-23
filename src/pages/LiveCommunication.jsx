@@ -117,6 +117,9 @@ function LiveCommunication() {
   const localStreamRef = useRef(null);
   const animationFrameRef = useRef(null);
   const canvasRef = useRef(null);
+  // Separate analyser for the oscilloscope (longer window than the VAD analyser)
+  const scopeAnalyserRef = useRef(null);
+  const scopeGainRef = useRef(1);
 
   // Demo Voices & PC Audio Capture State
   const DEMO_VOICE_OPTIONS = [
@@ -178,7 +181,7 @@ function LiveCommunication() {
     } else if (calculatedMos !== null) {
       displayScore = calculatedMos.toFixed(1);
       statusNote = isActuallySpeaking
-        ? "Score computed by the on-device AudioModelCl neural model"
+        ? "Score computed by the on-device neural model"
         : "Speech paused · Holding evaluated score (resumes on next word)";
       isSilent = !isActuallySpeaking;
       if (!isActuallySpeaking) {
@@ -315,7 +318,7 @@ function LiveCommunication() {
       // Tear down nodes from any previous call to this function. Without this,
       // each rebuild leaves the old filter/gain nodes wired to the speakers,
       // leaking nodes and playing the demo monitor more than once.
-      for (const ref of [filterNodeRef, zeroGainRef, demoMonitorGainRef]) {
+      for (const ref of [filterNodeRef, zeroGainRef, demoMonitorGainRef, scopeAnalyserRef]) {
         if (ref.current) {
           try { ref.current.disconnect(); } catch {}
           ref.current = null;
@@ -406,6 +409,13 @@ function LiveCommunication() {
       analyser.connect(zeroGain);
       zeroGain.connect(audioCtx.destination);
 
+      // Oscilloscope tap: 2048-sample window (~43 ms at 48 kHz), no smoothing.
+      const scopeAnalyser = audioCtx.createAnalyser();
+      scopeAnalyser.fftSize = 2048;
+      scopeAnalyserRef.current = scopeAnalyser;
+      scriptNode.connect(scopeAnalyser);
+      scopeAnalyser.connect(zeroGain);
+
       // Demo Voice monitor output (routed to speakers so user can hear demo speech & real effects!)
       const demoMonitorGain = audioCtx.createGain();
       demoMonitorGain.gain.value = isTestTonePlayingRef.current ? 0.35 : 0.0;
@@ -414,6 +424,7 @@ function LiveCommunication() {
       demoMonitorGain.connect(audioCtx.destination);
 
       const timeBuffer = new Float32Array(analyser.fftSize);
+      const scopeBuffer = new Float32Array(scopeAnalyser.fftSize);
       const freqBuffer = new Uint8Array(analyser.frequencyBinCount);
 
       let lastStateTime = Date.now();
@@ -587,35 +598,76 @@ function LiveCommunication() {
             }
           }
 
-          // 4. Render 60fps Canvas Spectrum Visualizer (Safe universal fillRect)
+          // 4. 60fps Oscilloscope (time-domain waveform of the processed signal)
           const activeCanvas = canvasRef.current;
-          if (activeCanvas) {
+          const scope = scopeAnalyserRef.current;
+          if (activeCanvas && scope) {
             const ctx = activeCanvas.getContext("2d");
             const w = activeCanvas.width;
             const h = activeCanvas.height;
+            const mid = h / 2;
 
-            ctx.clearRect(0, 0, w, h);
+            scope.getFloatTimeDomainData(scopeBuffer);
+
+            // Background + graticule (8 x 4 divisions, centre line brighter)
             ctx.fillStyle = "#07162d";
             ctx.fillRect(0, 0, w, h);
-
-            const barCount = 36;
-            const barW = Math.max(2, w / barCount - 2);
-
-            for (let i = 0; i < barCount; i++) {
-              const freqIdx = Math.floor((i / barCount) * freqBuffer.length);
-              const val = freqBuffer[freqIdx] || 0;
-              
-              // Animated bar height with minimum baseline
-              const barH = Math.max(4, (val / 255) * h * 0.88 + (voiceActive ? 6 : 2));
-
-              // Color gradient: Cyan -> Emerald Green
-              const gradient = ctx.createLinearGradient(0, h, 0, 0);
-              gradient.addColorStop(0, "#0284c7");
-              gradient.addColorStop(1, voiceActive ? "#10b981" : "#38bdf8");
-
-              ctx.fillStyle = gradient;
-              ctx.fillRect(i * (barW + 2), h - barH, barW, barH);
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = "rgba(148, 163, 184, 0.14)";
+            ctx.beginPath();
+            for (let d = 1; d < 8; d++) {
+              const x = Math.round((d * w) / 8) + 0.5;
+              ctx.moveTo(x, 0);
+              ctx.lineTo(x, h);
             }
+            for (let d = 1; d < 4; d++) {
+              const y = Math.round((d * h) / 4) + 0.5;
+              ctx.moveTo(0, y);
+              ctx.lineTo(w, y);
+            }
+            ctx.stroke();
+            ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
+            ctx.beginPath();
+            ctx.moveTo(0, Math.round(mid) + 0.5);
+            ctx.lineTo(w, Math.round(mid) + 0.5);
+            ctx.stroke();
+
+            // Trigger: first rising zero crossing in the first half, so the trace
+            // stays still instead of scrolling. Falls back to the start.
+            const span = scopeBuffer.length / 2; // samples shown (~21 ms at 48 kHz)
+            let start = 0;
+            for (let i = 1; i < span; i++) {
+              if (scopeBuffer[i - 1] < 0 && scopeBuffer[i] >= 0) {
+                start = i;
+                break;
+              }
+            }
+
+            // Auto gain so quiet speech is still visible (smoothed, capped at x10)
+            let peakAbs = 0;
+            for (let i = start; i < start + span; i++) peakAbs = Math.max(peakAbs, Math.abs(scopeBuffer[i]));
+            const targetGain = Math.min(10, 0.9 / Math.max(peakAbs, 0.09));
+            scopeGainRef.current += (targetGain - scopeGainRef.current) * 0.15;
+            const gain = scopeGainRef.current;
+
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = voiceActive ? "#34d399" : "#38bdf8";
+            ctx.shadowColor = ctx.strokeStyle;
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            for (let i = 0; i < span; i++) {
+              const v = Math.max(-1, Math.min(1, scopeBuffer[start + i] * gain));
+              const x = (i / (span - 1)) * w;
+              const y = mid - v * (mid - 3);
+              if (i === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = "rgba(148, 163, 184, 0.8)";
+            ctx.font = "bold 18px Inter, system-ui, sans-serif";
+            ctx.fillText(`×${gain.toFixed(1)}`, 10, 22);
           }
         } catch (loopErr) {
           console.error("Visualizer loop tick error:", loopErr);
@@ -1325,6 +1377,7 @@ function LiveCommunication() {
     }
     audioContextRef.current = null;
     analyserRef.current = null;
+    scopeAnalyserRef.current = null;
   };
 
   const leaveMeeting = () => {
@@ -1591,7 +1644,7 @@ function LiveCommunication() {
             </div>
             <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#ecfdf5", padding: "6px 14px", borderRadius: "9999px", fontSize: "13px", fontWeight: "700", color: "#065f46" }}>
               <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: mlState.isLoaded ? "#10b981" : "#64748b", display: "inline-block" }}></span>
-              {mlState.isLoaded ? `SpeechQualityModel (AudioModelCI · ${qcMetrics.latencyMs}ms)` : mlState.isLoading ? "Loading model…" : "Model unavailable"}
+              {mlState.isLoaded ? `SpeechQualityModel · ${qcMetrics.latencyMs}ms` : mlState.isLoading ? "Loading model…" : "Model unavailable"}
             </div>
           </div>
 
@@ -1624,7 +1677,7 @@ function LiveCommunication() {
                 <div style={{ fontSize: "13px", color: "#cbd5e1", lineHeight: 1.5 }}>{qcMetrics.statusNote}</div>
               </div>
               <div style={{ borderTop: "1px solid rgba(255,255,255,0.15)", paddingTop: "12px", marginTop: "14px" }}>
-                <div style={{ fontSize: "13px", fontWeight: "800", color: "#38bdf8" }}>SpeechQualityModel (AudioModelCI)</div>
+                <div style={{ fontSize: "13px", fontWeight: "800", color: "#38bdf8" }}>SpeechQualityModel</div>
                 <div style={{ fontSize: "12px", color: "#94a3b8", display: "flex", justifyContent: "space-between", marginTop: "3px" }}>
                   <span>{qcMetrics.isSilent ? "VAD: Listening..." : `WASM: ${qcMetrics.latencyMs}ms`}</span>
                   <span>SNR: {qcMetrics.rawSnr} dB</span>
@@ -1708,13 +1761,13 @@ function LiveCommunication() {
               boxShadow: "0 2px 8px rgba(37, 99, 235, 0.06)"
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                <span style={{ fontSize: "15px", fontWeight: "800", color: "#0f172a" }}>Frequency Spectrum (256-bin FFT Analyser)</span>
+                <span style={{ fontSize: "15px", fontWeight: "800", color: "#0f172a" }}>Oscilloscope (Live Waveform)</span>
                 <span style={{ fontSize: "13px", color: isVoiceActive ? "#059669" : "#64748b", fontWeight: "700" }}>{isVoiceActive ? "🗣️ Voice Detected (Active Speech)" : "Listening..."}</span>
               </div>
-              <canvas ref={canvasRef} width="1200" height="54" style={{ width: "100%", height: "54px", borderRadius: "8px", background: "#0b1329", display: "block" }} />
+              <canvas ref={canvasRef} width="1200" height="180" style={{ width: "100%", height: "90px", borderRadius: "8px", background: "#0b1329", display: "block" }} />
             </div>
 
-            {/* 2. QUALITY TREND ROLLING GRAPH (DOWN TO FFT SPECTRUM) */}
+            {/* 2. QUALITY TREND ROLLING GRAPH (BELOW THE OSCILLOSCOPE) */}
             <div style={{
               background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
               borderRadius: "0 14px 14px 0",

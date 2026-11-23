@@ -6,11 +6,11 @@ const router = express.Router();
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9_-]{0,79}$/;
 // Paths the frontend router already uses for its own pages (see src/App.jsx).
-// "planning-v1" and "planning-v2" are NOT reserved: those pages show the
-// published deliverable when one exists.
+// "planning-v1" is NOT reserved: that page shows the published deliverable
+// when one exists.
 const RESERVED_SLUGS = new Set([
   'project', 'team', 'timeline', 'architecture', 'live-communication', 'live',
-  'live-test', 'planning', 'admin', 'deliverables', 'api', 'uploads', 'assets',
+  'live-test', 'planning', 'admin', 'deliverables', 'final-presentation', 'api', 'uploads', 'assets',
   'models', 'audio',
 ]);
 

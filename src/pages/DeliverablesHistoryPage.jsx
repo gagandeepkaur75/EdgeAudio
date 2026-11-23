@@ -82,7 +82,7 @@ function DeliverablesHistoryPage() {
           <h2 style={{ color: "#07162d", marginBottom: "10px" }}>No Deliverables Published Yet</h2>
           <p style={{ color: "#55748a", marginBottom: "25px" }}>The team has not uploaded any official project deliverables to the server yet.</p>
           <Link to="/planning-v1" className="primary-btn" style={{ display: "inline-block", textDecoration: "none" }}>
-            View Planning Presentation V1 (Interactive)
+            View Planning Presentation (Interactive)
           </Link>
         </div>
       )}

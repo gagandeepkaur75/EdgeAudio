@@ -13,7 +13,7 @@ function formatDateOnly(value) {
 }
 
 // `fallback` is shown instead of the "not found" page when nothing has been
-// published under this slug yet (used by /planning-v2's placeholder page).
+// published under this slug yet (optional placeholder page for a slug).
 export default function DeliverablePage({ slug: slugProp, fallback = null }) {
   // Static routes like /planning-v1 have no :slug param, so they pass it as a prop.
   const params = useParams();
@@ -88,7 +88,7 @@ export default function DeliverablePage({ slug: slugProp, fallback = null }) {
           borderBottom: "1px solid #173b60"
         }}>
           <span style={{ fontSize: "0.9rem", fontWeight: "bold", letterSpacing: "1px" }}>
-            Planning V1 Slideshow Deck
+            Planning Presentation Slideshow
           </span>
           <div style={{ display: "flex", gap: "10px" }}>
             <button

@@ -1,6 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { useSiteNavLinks, isNavActive } from "./components/siteNav";
 
 function Home() {
+  const { pathname } = useLocation();
+  // Same menu items, in the same order, as the top bar on every other page.
+  const links = useSiteNavLinks();
+
   return (
     <div className="home-page">
 
@@ -9,9 +14,9 @@ function Home() {
       <aside className="side-nav">
 
         <div className="side-brand">
-          <div className="side-brand-name">
+          <Link to="/" className="side-brand-name">
             EdgeAudio<span>-QC</span>
-          </div>
+          </Link>
 
           <p>
             Privacy-Preserving
@@ -23,58 +28,22 @@ function Home() {
         </div>
 
         <nav className="side-menu">
-
-          <Link to="/" className="side-link active">
-            <span>01</span>
-            Home
-          </Link>
-
-          <Link to="/project" className="side-link">
-            <span>02</span>
-            Project
-          </Link>
-
-          <Link to="/team" className="side-link">
-            <span>03</span>
-            Team
-          </Link>
-
-          <Link to="/planning-v1" className="side-link">
-            <span>04</span>
-            Planning V1
-          </Link>
-
-          <Link to="/planning-v2" className="side-link">
-            <span>05</span>
-            Planning V2
-          </Link>
-
-          <Link to="/timeline" className="side-link">
-            <span>06</span>
-            Timeline
-          </Link>
-
-          <Link to="/architecture" className="side-link">
-            <span>07</span>
-            Architecture
-          </Link>
-
-          <Link to="/deliverables" className="side-link">
-            <span>08</span>
-            Deliverables
-          </Link>
-
-          <Link to="/admin" className="side-link">
-            <span>09</span>
-            Admin
-          </Link>
-
+          {links.map((link, i) => (
+            <Link
+              key={link.label}
+              to={link.to}
+              className={`side-link${isNavActive(pathname, link.to) ? " active" : ""}`}
+            >
+              <span>{String(i + 1).padStart(2, "0")}</span>
+              {link.label}
+            </Link>
+          ))}
         </nav>
 
         <div className="side-footer">
-          UCS503
+          Software Engineering
           <br />
-          Software Project
+          Project
         </div>
 
       </aside>
@@ -87,7 +56,7 @@ function Home() {
         <div className="hero-content">
 
           <div className="hero-tag">
-            UCS503 SOFTWARE PROJECT
+            SOFTWARE ENGINEERING PROJECT
           </div>
 
           <h1>
@@ -108,35 +77,21 @@ function Home() {
           {/* ================= HOME BUTTONS ================= */}
 
           <div className="home-actions">
-                     <Link
-    to="/live-communication"
-    className="live-home-btn"
-  >
-    Start Live Communication
-  </Link>
+            <Link to="/live-communication" className="live-home-btn">
+              Start Live Communication
+            </Link>
 
-  <div className="home-secondary-actions"></div>
-            <Link
-              to="/project"
-              className="primary-btn"
-            >
+            <Link to="/project" className="primary-btn">
               Explore Project
             </Link>
 
-            <Link
-              to="/planning-v1"
-              className="secondary-btn"
-            >
-              Planning Presentation V1
+            <Link to="/planning-v1" className="secondary-btn">
+              Planning Presentation
             </Link>
 
-            <Link
-              to="/admin"
-              className="secondary-btn admin-btn"
-            >
-              Admin Login
+            <Link to="/final-presentation" className="secondary-btn">
+              Final Presentation
             </Link>
-
           </div>
 
         </div>
