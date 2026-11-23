@@ -90,7 +90,7 @@ function computeRealFftMagnitude(inputFrame, outMag) {
   }
 }
 
-class MLAudioAnalyzer {
+export class MLAudioAnalyzer {
   constructor() {
     this.session = null;
     this.isLoading = false;
@@ -217,24 +217,12 @@ class MLAudioAnalyzer {
   pushAudio(rawPcm, inputSampleRate = 48000, isSpeechActive = true) {
     if (!rawPcm || rawPcm.length === 0) return;
 
-    const ratio = inputSampleRate / this.targetSampleRate;
-    const targetLen =
+    const resampled =
       inputSampleRate === this.targetSampleRate
-        ? rawPcm.length
-        : Math.floor(rawPcm.length / ratio);
-    const resampled = new Float32Array(targetLen);
-
-    if (inputSampleRate === this.targetSampleRate) {
-      resampled.set(rawPcm);
-    } else {
-      for (let i = 0; i < targetLen; i++) {
-        const srcPos = i * ratio;
-        const index0 = Math.floor(srcPos);
-        const index1 = Math.min(rawPcm.length - 1, index0 + 1);
-        const weight = srcPos - index0;
-        resampled[i] = rawPcm[index0] * (1.0 - weight) + rawPcm[index1] * weight;
-      }
-    }
+        ? Float32Array.from(rawPcm)
+        : this._resample(rawPcm, inputSampleRate);
+    const targetLen = resampled.length;
+    if (targetLen === 0) return;
 
     // 1. Regular 2.0s circular buffer
     for (let i = 0; i < targetLen; i++) {
@@ -256,6 +244,78 @@ class MLAudioAnalyzer {
       }
       this.speechBufferCount = Math.min(this.speechWindowSize, this.speechBufferCount + targetLen);
     }
+  }
+
+  /**
+   * Streaming resampler to 16 kHz.
+   * 1. Low-pass FIR (windowed sinc, 7 kHz cutoff) so content above the new
+   *    8 kHz Nyquist limit doesn't fold back into the band (aliasing).
+   * 2. Linear interpolation whose fractional read position and filter history
+   *    carry across chunks, so no samples are dropped or repeated at chunk edges.
+   */
+  _resample(input, inputSampleRate) {
+    if (this._rsRate !== inputSampleRate) {
+      const taps = 63;
+      const fc = 7000 / inputSampleRate; // normalized cutoff (cycles/sample)
+      const h = new Float32Array(taps);
+      const mid = (taps - 1) / 2;
+      let sum = 0;
+      for (let i = 0; i < taps; i++) {
+        const x = i - mid;
+        const sinc = x === 0 ? 2 * fc : Math.sin(2 * Math.PI * fc * x) / (Math.PI * x);
+        const hamming = 0.54 - 0.46 * Math.cos((2 * Math.PI * i) / (taps - 1));
+        h[i] = sinc * hamming;
+        sum += h[i];
+      }
+      for (let i = 0; i < taps; i++) h[i] /= sum; // unity gain at DC
+      this._rsRate = inputSampleRate;
+      this._rsTaps = h;
+      this._rsHistory = new Float32Array(taps - 1);
+      this._rsPhase = 0;
+      this._rsLast = 0;
+    }
+
+    const h = this._rsTaps;
+    const taps = h.length;
+    const hist = this._rsHistory;
+    const n = input.length;
+
+    // FIR low-pass over [history | input]
+    const ext = new Float32Array(hist.length + n);
+    ext.set(hist, 0);
+    ext.set(input, hist.length);
+    const filtered = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      let acc = 0;
+      for (let k = 0; k < taps; k++) acc += h[k] * ext[i + k];
+      filtered[i] = acc;
+    }
+    hist.set(ext.subarray(n, n + hist.length));
+
+    // Fractional-position linear interpolation (position -1 = last sample of previous chunk)
+    const ratio = inputSampleRate / this.targetSampleRate;
+    const out = new Float32Array(Math.ceil((n - this._rsPhase) / ratio) + 1);
+    let count = 0;
+    let pos = this._rsPhase;
+    while (pos <= n - 1) {
+      const i0 = Math.floor(pos);
+      const w = pos - i0;
+      const a = i0 < 0 ? this._rsLast : filtered[i0];
+      const b = i0 + 1 < n ? filtered[i0 + 1] : a;
+      out[count++] = a * (1 - w) + b * w;
+      pos += ratio;
+    }
+    this._rsPhase = pos - n;
+    this._rsLast = filtered[n - 1];
+    return out.subarray(0, count);
+  }
+
+  /** Clears buffers AND the previous score, e.g. when a new call starts. */
+  resetAll() {
+    this.resetBuffer();
+    this.isVoiceActive = false;
+    this.voiceHangoverTimer = 0;
+    this.lastResult = { ...this.lastResult, hasPrediction: false, isSilent: true };
   }
 
   resetBuffer() {
@@ -545,5 +605,9 @@ class MLAudioAnalyzer {
   }
 }
 
-// Export singleton instance
+// Analyzer for the local signal (your mic / demo voice / PC audio)
 export const mlAudioAnalyzer = new MLAudioAnalyzer();
+
+// Separate analyzer (own buffers and ONNX session) for the audio received from
+// the other participant in a call, i.e. what the listener actually hears.
+export const remoteAudioAnalyzer = new MLAudioAnalyzer();

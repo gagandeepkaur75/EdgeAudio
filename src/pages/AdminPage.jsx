@@ -21,7 +21,11 @@ export default function AdminPage() {
   const [slug, setSlug] = useState("");
   const [deliverableType, setDeliverableType] = useState("planning");
   const [version, setVersion] = useState("v1");
-  const [presentationDate, setPresentationDate] = useState(new Date().toISOString().split("T")[0]);
+  // Local date (toISOString() is UTC and gives yesterday's date early in the morning in India).
+  const [presentationDate, setPresentationDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [authors, setAuthors] = useState("Gagandeep, Prabhleen, Dishita");
   const [changeSummary, setChangeSummary] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);

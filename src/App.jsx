@@ -1,7 +1,7 @@
 import LiveCommunication from "./pages/LiveCommunication";
 import "./App.css";
 import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -12,13 +12,10 @@ function ScrollToTop() {
 }
 
 import Home from "./Home";
-import Planning from "./pages/planning";
-import LiveTest from "./pages/LiveTest";
 import AdminPage from "./pages/AdminPage";
 import DeliverablePage from "./pages/DeliverablePage";
 import DeliverablesHistoryPage from "./pages/DeliverablesHistoryPage";
 import PageNav from "./components/PageNav";
-import { api } from "./utils/api";
 
 function Page({ children }) {
   return (
@@ -436,7 +433,7 @@ function App() {
         <Route path="/live-test" element={<LiveCommunication />} />
         <Route path="/planning" element={<DeliverablePage slug="planning-v1" />} />
         <Route path="/planning-v1" element={<DeliverablePage slug="planning-v1" />} />
-        <Route path="/planning-v2" element={<PlanningV2 />} />
+        <Route path="/planning-v2" element={<DeliverablePage slug="planning-v2" fallback={<PlanningV2 />} />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/deliverables" element={<DeliverablesHistoryPage />} />
         <Route path="/:slug" element={<DeliverablePage />} />

@@ -4,7 +4,17 @@ import { api } from "../utils/api";
 import Planning from "./planning";
 import PageNav from "../components/PageNav";
 
-export default function DeliverablePage({ slug: slugProp }) {
+// "YYYY-MM-DD" strings are parsed by Date as UTC midnight, which shows the
+// previous day in time zones behind UTC. Build a local date instead.
+function formatDateOnly(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(value);
+  return Number.isNaN(d.getTime()) ? value || "" : d.toLocaleDateString();
+}
+
+// `fallback` is shown instead of the "not found" page when nothing has been
+// published under this slug yet (used by /planning-v2's placeholder page).
+export default function DeliverablePage({ slug: slugProp, fallback = null }) {
   // Static routes like /planning-v1 have no :slug param, so they pass it as a prop.
   const params = useParams();
   const slug = slugProp ?? params.slug;
@@ -16,32 +26,32 @@ export default function DeliverablePage({ slug: slugProp }) {
   const [viewMode, setViewMode] = useState("interactive"); // "interactive" or "metadata"
 
   useEffect(() => {
-    fetchDeliverable();
-  }, [slug]);
-
-  const fetchDeliverable = async () => {
+    // Ignore responses for a slug the user has already navigated away from,
+    // so a slow earlier request can't overwrite the current page.
+    let active = true;
     setLoading(true);
     setError("");
-    try {
-      const result = await api.getDeliverable(slug);
-      setData(result);
-      if (result) {
-        // If it was fetched, check if it's planning-v1.
-        // Default to interactive mode if it is planning-v1, otherwise metadata
-        setViewMode(slug === "planning-v1" ? "interactive" : "metadata");
-      } else {
-        // Not in database. If it's planning-v1, we show the static interactive deck by default
-        if (slug === "planning-v1") {
-          setViewMode("interactive");
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      setError("An error occurred while loading this deliverable page.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    setData(null);
+    api
+      .getDeliverable(slug)
+      .then((result) => {
+        if (!active) return;
+        setData(result);
+        // planning-v1 opens on the interactive deck; other slugs on their details.
+        setViewMode(slug === "planning-v1" || !result ? "interactive" : "metadata");
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.error(err);
+        setError("Could not reach the server to load this deliverable. Please try again later.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [slug]);
 
   if (loading) {
     return (
@@ -125,6 +135,28 @@ export default function DeliverablePage({ slug: slugProp }) {
         <Planning />
       </div>
     );
+  }
+
+  // Server unreachable: say so instead of claiming the page doesn't exist.
+  if (!data && error && !fallback) {
+    return (
+      <div className="site-page">
+        <PageNav />
+        <main className="page-container" style={{ textAlign: "center", padding: "5rem 2rem" }}>
+          <div className="upload-icon" style={{ fontSize: "4rem", marginBottom: "1.5rem" }}>⚠️</div>
+          <h1>Deliverable Unavailable</h1>
+          <p style={{ maxWidth: "600px", margin: "1rem auto 2rem auto", fontSize: "1.1rem" }}>{error}</p>
+          <div style={{ display: "flex", justifyContent: "center", gap: "1rem" }}>
+            <Link to="/" className="navy-button">Go to Homepage</Link>
+            <Link to="/deliverables" className="outline-button">All Deliverables</Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!data && fallback) {
+    return fallback;
   }
 
   // 404 Case
@@ -220,14 +252,14 @@ export default function DeliverablePage({ slug: slugProp }) {
           <span>{data.deliverable_type.toUpperCase()} DELIVERABLE</span>
           <h1>{data.title}</h1>
           <p>
-            Version {data.version} — Published on {new Date(data.presentation_date).toLocaleDateString()}
+            Version {data.version} — Presented on {formatDateOnly(data.presentation_date)}
           </p>
         </div>
 
         {/* Deliverable Metadata Banner */}
         <div className="version-banner" style={{ margin: "2rem 0" }}>
           <div><strong>Version:</strong> {data.version}</div>
-          <div><strong>Presentation Date:</strong> {new Date(data.presentation_date).toLocaleDateString()}</div>
+          <div><strong>Presentation Date:</strong> {formatDateOnly(data.presentation_date)}</div>
           <div><strong>Authors:</strong> {data.authors}</div>
         </div>
 

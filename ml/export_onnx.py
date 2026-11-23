@@ -5,10 +5,11 @@ import onnx
 import onnxruntime as ort
 
 from model import SpeechQualityModel
+from paths import P
 
 def export_onnx(
-    checkpoint_path="project/models/best_model.pt",
-    output_onnx="project/web/model.onnx",
+    checkpoint_path=P("models/best_model.pt"),
+    output_onnx=P("web/model.onnx"),
     opset_version=17
 ):
     print("Loading PyTorch model checkpoint...")
@@ -97,10 +98,10 @@ def export_onnx(
     assert max_diag_diff < 1e-3, f"Diagnostics parity failed: {max_diag_diff}"
     print(">>> All PyTorch vs ONNX parity checks PASSED! <<<")
 
-    # Copy to project/models/model.onnx as well
+    # Also keep a copy next to the checkpoints (ml/checkpoints/model.onnx)
     import shutil
-    shutil.copyfile(output_onnx, "project/models/model.onnx")
-    print(f"Saved standalone model to project/models/model.onnx and {output_onnx}")
+    shutil.copyfile(output_onnx, P("models/model.onnx"))
+    print(f"Saved standalone model to {P('models/model.onnx')} and {output_onnx}")
 
 if __name__ == '__main__':
     export_onnx()

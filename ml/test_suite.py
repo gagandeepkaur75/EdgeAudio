@@ -22,6 +22,7 @@ from degradations import (
 )
 from teacher import compute_clean_vad, compute_teacher_label
 from dataset import get_splits
+from paths import P
 
 SR = 16000
 
@@ -46,22 +47,22 @@ def test_python_vs_js_feature_parity(n_clips=20):
     print("TEST 1: Python-vs-JS Feature Parity Test (20 clips)")
     print("="*60)
     
-    clean_files = sorted(glob.glob("project/data/clean_speech/*/*.flac"))[:n_clips]
+    clean_files = sorted(glob.glob(P("data/clean_speech/*/*.flac")))[:n_clips]
     test_clips = [load_audio_2s(f).tolist() for f in clean_files]
     
     # Save clips to JSON for Node.js
-    clips_path = "project/train/test_clips.json"
+    clips_path = P("train/test_clips.json")
     with open(clips_path, "w") as f:
         json.dump({"clips": test_clips}, f)
 
     # Run Node.js feature extractor
-    node_cmd = ["node", "project/train/test_features.js"]
+    node_cmd = ["node", P("train/test_features.js")]
     ret = subprocess.run(node_cmd, capture_output=True, text=True)
     if ret.returncode != 0:
         print("Node.js stderr:", ret.stderr)
         raise RuntimeError("Node.js feature extraction failed!")
 
-    with open("project/train/js_features.json", "r") as f:
+    with open(P("train/js_features.json"), "r") as f:
         js_data = json.load(f)["features"]
 
     max_err = 0.0
@@ -89,7 +90,7 @@ def test_python_vs_js_feature_parity(n_clips=20):
     print(">>> PASS: Python-vs-JS feature parity confirmed (< 1e-3)! <<<")
     return max_err
 
-def test_onnx_vs_pytorch_parity(checkpoint_path="project/models/best_model.pt", onnx_path="project/web/model.onnx"):
+def test_onnx_vs_pytorch_parity(checkpoint_path=P("models/best_model.pt"), onnx_path=P("web/model.onnx")):
     print("\n" + "="*60)
     print("TEST 2: ONNX-vs-PyTorch Model Output Parity Test")
     print("="*60)
@@ -338,7 +339,7 @@ def evaluate_heldout_test_set(model, norm_stats, test_clean, test_noise):
 def run_all_tests():
     splits = get_splits()
     
-    with open("project/models/norm_stats.json") as f:
+    with open(P("models/norm_stats.json")) as f:
         stats_raw = json.load(f)
     norm_stats = {
         "mean": np.array(stats_raw["mean"], dtype=np.float32),
@@ -355,7 +356,7 @@ def run_all_tests():
 
     # Load PyTorch model
     model = SpeechQualityModel()
-    ckpt = torch.load("project/models/best_model.pt", map_location="cpu")
+    ckpt = torch.load(P("models/best_model.pt"), map_location="cpu")
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
 
@@ -367,9 +368,9 @@ def run_all_tests():
     metrics = evaluate_heldout_test_set(model, norm_stats, splits["test_clean"], splits["test_noise"])
     
     # Save test metrics
-    with open("project/models/test_metrics.json", "w") as f:
+    with open(P("models/test_metrics.json"), "w") as f:
         json.dump(metrics, f, indent=2)
-    print("\nSaved test metrics to project/models/test_metrics.json")
+    print(f"\nSaved test metrics to {P('models/test_metrics.json')}")
 
 if __name__ == '__main__':
     run_all_tests()

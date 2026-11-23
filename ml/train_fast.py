@@ -12,6 +12,7 @@ from scipy.stats import pearsonr, spearmanr
 
 from model import SpeechQualityModel
 from export_onnx import export_onnx
+from paths import P
 
 class EMA:
     def __init__(self, model, decay=0.995):
@@ -37,7 +38,7 @@ def compute_metrics(y_true, y_pred):
     rmse = np.sqrt(np.mean((y_true - y_pred) ** 2))
     return float(plcc), float(srcc), float(rmse)
 
-def train(epochs=12, batch_size=64, lr=1.0e-3, cache_path="project/models/dataset_cache.pt"):
+def train(epochs=12, batch_size=64, lr=1.0e-3, cache_path=P("models/dataset_cache.pt")):
     torch.set_num_threads(4)
     device = torch.device("cpu")
     print(f"Loading cached dataset from {cache_path}...")
@@ -80,7 +81,7 @@ def train(epochs=12, batch_size=64, lr=1.0e-3, cache_path="project/models/datase
     best_val_plcc = -1.0
     best_val_rmse = 999.0
     best_val_loss = 999.0
-    best_path = "project/models/best_model.pt"
+    best_path = P("models/best_model.pt")
 
     print(f"\nStarting in-memory training for {epochs} epochs...")
     t_start = time.time()
@@ -180,7 +181,7 @@ def train(epochs=12, batch_size=64, lr=1.0e-3, cache_path="project/models/datase
     total_time = time.time() - t_start
     print(f"\nTraining completed in {total_time:.1f}s! Best Val PLCC: {best_val_plcc:.4f}, RMSE: {best_val_rmse:.3f}")
     print("Exporting best model to ONNX...")
-    export_onnx(checkpoint_path=best_path, output_onnx="project/web/model.onnx")
+    export_onnx(checkpoint_path=best_path, output_onnx=P("web/model.onnx"))
 
 if __name__ == '__main__':
     train(epochs=12, batch_size=64, lr=1.0e-3)

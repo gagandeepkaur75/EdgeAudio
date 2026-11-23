@@ -115,11 +115,11 @@ class Database {
     }
   }
 
-  pragma(arg) {
+  pragma(_arg) {
     return this;
   }
 
-  exec(arg) {
+  exec(_arg) {
     return this;
   }
 

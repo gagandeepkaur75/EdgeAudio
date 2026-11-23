@@ -1,8 +1,10 @@
 # EdgeAudioQC Backend
 
-Auth + file upload + versioned publishing API for the team website. Built with
-Express, SQLite (via better-sqlite3), and S3-compatible object storage (works
-with real AWS S3 or Cloudflare R2 without any code changes).
+Auth + file upload + versioned publishing API for the team website, plus the
+signaling server for the 2-person WebRTC test call. Built with Express, a small
+JSON-file database (`src/better-sqlite3-shim.js`, file at `DB_PATH`), and
+S3-compatible object storage (AWS S3 or Cloudflare R2). If no S3 credentials
+are configured, uploads are stored on the server's disk under `public/uploads`.
 
 ## What it does
 
@@ -11,6 +13,7 @@ with real AWS S3 or Cloudflare R2 without any code changes).
 - `POST /api/publish` - (auth required) turns an uploaded file + metadata into a permanent, versioned page. Publishing a new slug (e.g. `planning-v2`) never touches or removes an older one (e.g. `planning-v1`) - old versions stay live forever, which is a hard requirement from the assignment.
 - `GET /api/deliverables` - public list of everything ever published (for the site's nav/version history)
 - `GET /api/deliverables/:slug` - public fetch of one specific version's metadata
+- `POST /api/meeting/join`, `GET /api/meeting/:id/poll`, `POST /api/meeting/signal`, `POST /api/meeting/leave`, `GET /api/meeting/:id/check` - in-memory WebRTC signaling for the live call page
 
 ## Local setup
 
@@ -23,7 +26,8 @@ Edit `.env`:
 - Generate an admin password hash: `node -e "console.log(require('bcryptjs').hashSync('yourpassword', 10))"` and paste it into `ADMIN_PASSWORD_HASH`
 - Set `JWT_SECRET` to a long random string
 - Fill in your S3 or R2 credentials and bucket name
-- Set `ALLOWED_ORIGINS` to your Cloudflare Pages URL (e.g. `https://edgeaudioqc.pages.dev`)
+- Set `ALLOWED_ORIGINS` to a comma-separated list of frontend origins, e.g. `https://edgeaudioqc.pages.dev,http://localhost:5173`. A leading wildcard matches subdomains: `https://*.edgeaudioqc.pages.dev`. If it is left empty, every origin is allowed (a warning is printed at startup) - fine for local development, not for production.
+- Optional: `LOCAL_UPLOAD_URL` - the public base URL of this server, used to build file links when S3 is not configured (default `http://localhost:3000`)
 
 Run it:
 ```bash
@@ -124,9 +128,12 @@ Your Nginx config should already be proxying `your-domain` to `localhost:3000` (
 ## Security notes for your team to actually understand (not just deploy)
 
 - Passwords are never stored in plaintext - only a bcrypt hash, in an env var, never committed to git.
+- Login is rate-limited: 5 failed attempts from one IP lock that IP out for 15 minutes. The password check is asynchronous, so it doesn't block other requests.
 - JWTs expire (`JWT_EXPIRES_IN`, default 8h) - a stolen token doesn't work forever.
-- Uploaded files go straight to object storage in memory, never written to the VM's local disk - one less thing to secure or clean up.
-- `slug` uniqueness at the database level (not just application logic) is what actually guarantees old versions can never be silently overwritten - worth being able to explain this if asked in the demo.
-- CORS is allow-listed to specific origins, not left wide open (`*`) - the API will reject requests from anywhere but your actual frontend.
+- Slug uniqueness is enforced by the API (`/api/publish` returns 409 for an existing slug, and there is no update or delete route), which is what guarantees old versions are never overwritten. Slugs must be URL-safe and can't reuse a site page's path (e.g. `team`, `admin`).
+- The database is a JSON file. Writes go to a temporary file which is then renamed over the original, so a crash can't leave it half-written. The server refuses to start if `DB_PATH` points at a file in another format (e.g. an old SQLite database) instead of deleting it.
+- With S3/R2 configured, uploads go straight from memory to object storage. Without it, they are written to `public/uploads` and served with `X-Content-Type-Options: nosniff`; anything other than PDFs and images is forced to download, so an uploaded HTML/SVG file can't run as a page on the API's domain.
+- CORS is limited to `ALLOWED_ORIGINS`. Auth uses a Bearer header (not cookies), so credentials mode is off.
+- The meeting signaling routes are unauthenticated by design (anyone with a room code can join), but inputs are validated and memory is capped: max 500 rooms, 8 users per room, 200 queued signals per user, 16 KB per signal. Users who stop polling for 45 s are removed.
 
 Every team member should be able to explain each of these choices, not just the person who wrote this file - that's an explicit requirement in the assignment.
