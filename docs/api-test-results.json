@@ -1,0 +1,108 @@
+{
+  "when": "2026-11-22T22:48:42.643Z",
+  "node": "v24.13.0",
+  "results": [
+    {
+      "id": "API-01",
+      "name": "Health check",
+      "status": "PASS",
+      "detail": "HTTP 200"
+    },
+    {
+      "id": "API-02",
+      "name": "Login with valid credentials returns JWT",
+      "status": "PASS",
+      "detail": "HTTP 200, token issued, expiresIn=8h"
+    },
+    {
+      "id": "API-03",
+      "name": "Login with wrong password rejected",
+      "status": "PASS",
+      "detail": "HTTP 401"
+    },
+    {
+      "id": "API-04",
+      "name": "Upload without token rejected",
+      "status": "PASS",
+      "detail": "HTTP 401"
+    },
+    {
+      "id": "API-05",
+      "name": "Authenticated upload stores file",
+      "status": "PASS",
+      "detail": "HTTP 200, fileKey returned"
+    },
+    {
+      "id": "API-06",
+      "name": "Publish new deliverable version",
+      "status": "PASS",
+      "detail": "HTTP 201"
+    },
+    {
+      "id": "API-07",
+      "name": "Re-publishing an existing slug is refused",
+      "status": "PASS",
+      "detail": "HTTP 409"
+    },
+    {
+      "id": "API-08",
+      "name": "Reserved slug rejected",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "API-09",
+      "name": "Bad date format rejected",
+      "status": "PASS",
+      "detail": "HTTP 400"
+    },
+    {
+      "id": "API-10",
+      "name": "Public list and fetch by slug",
+      "status": "PASS",
+      "detail": "list HTTP 200, slug HTTP 200"
+    },
+    {
+      "id": "API-11",
+      "name": "Unknown slug returns 404",
+      "status": "PASS",
+      "detail": "HTTP 404"
+    },
+    {
+      "id": "API-12",
+      "name": "Peer cannot join a non-existent room",
+      "status": "PASS",
+      "detail": "HTTP 404"
+    },
+    {
+      "id": "API-13",
+      "name": "Host creates room, peer joins, signal relayed exactly once",
+      "status": "PASS",
+      "detail": "count=2; offer delivered on 1st poll, empty on 2nd"
+    },
+    {
+      "id": "API-14",
+      "name": "Oversized signal rejected",
+      "status": "PASS",
+      "detail": "HTTP 413"
+    },
+    {
+      "id": "API-15",
+      "name": "Sender outside room cannot signal",
+      "status": "PASS",
+      "detail": "HTTP 403"
+    },
+    {
+      "id": "API-16",
+      "name": "Room full after 8 users",
+      "status": "PASS",
+      "detail": "HTTP 409 on 9th join"
+    },
+    {
+      "id": "API-17",
+      "name": "Login lockout after 5 failures",
+      "status": "PASS",
+      "detail": "HTTP 429 after repeated failures"
+    }
+  ]
+}

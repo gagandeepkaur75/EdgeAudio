@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "test": "node tests/api.test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.658.0",
