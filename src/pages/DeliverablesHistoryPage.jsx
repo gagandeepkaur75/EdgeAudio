@@ -51,7 +51,6 @@ function DeliverablesHistoryPage() {
   return (
     <Page>
       <div className="page-title">
-        <span>05 — DELIVERABLES HISTORY</span>
         <h1>Project Deliverables</h1>
         <p>The complete archive of all presentations, plans, and files published over the lifecycle of the project.</p>
       </div>

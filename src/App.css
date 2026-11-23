@@ -357,20 +357,6 @@ a {
   text-align: center;
 }
 
-.page-title > span {
-  display: inline-block;
-  color: #2563eb;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 2.5px;
-  text-transform: uppercase;
-  margin-bottom: 14px;
-  background: #eff6ff;
-  padding: 6px 16px;
-  border-radius: 9999px;
-  border: 1px solid #dbeafe;
-}
-
 .page-title h1 {
   margin: 0 0 16px;
   color: #0f172a !important;

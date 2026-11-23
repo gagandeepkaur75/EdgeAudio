@@ -249,7 +249,6 @@ export default function DeliverablePage({ slug: slugProp, fallback = null }) {
         )}
 
         <div className="page-title">
-          <span>{data.deliverable_type.toUpperCase()} DELIVERABLE</span>
           <h1>{data.title}</h1>
           <p>
             Version {data.version} — Presented on {formatDateOnly(data.presentation_date)}

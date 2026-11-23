@@ -1572,9 +1572,6 @@ function LiveCommunication() {
             {/* COMPACT SLEEK HEADER */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "12px" }}>
               <div>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "#eff6ff", color: "#2563eb", padding: "4px 12px", borderRadius: "9999px", fontSize: "12px", fontWeight: "700", letterSpacing: "1px", textTransform: "uppercase", marginBottom: "6px" }}>
-                  <span>●</span> 06 — PROTOTYPE EVALUATION
-                </div>
                 <h1 style={{ color: "#0f172a", fontSize: "clamp(28px, 3vw, 36px)", margin: 0, fontWeight: "800", letterSpacing: "-0.5px" }}>EdgeAudio-QC Live Test</h1>
                 <p style={{ color: "#64748b", margin: "4px 0 0", fontSize: "15px", lineHeight: "1.4" }}>
                   Real-time on-device speech quality estimator. Speak into your microphone or play a demo voice to compute live MOS scores.

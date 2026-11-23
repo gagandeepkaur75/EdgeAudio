@@ -223,7 +223,6 @@ export default function AdminPage() {
         <PageNav />
         <main className="page-container">
           <div className="page-title">
-            <span>ADMINISTRATION</span>
             <h1>Instructor / Admin Interface</h1>
             <p>Access the administrative panel to upload and publish official project deliverables.</p>
           </div>
@@ -270,7 +269,6 @@ export default function AdminPage() {
       <PageNav />
       <main className="page-container">
         <div className="page-title">
-          <span>ADMIN DASHBOARD</span>
           <h1>Admin Portal</h1>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
             <p>Welcome back! You are logged in as admin.</p>

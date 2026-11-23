@@ -45,8 +45,8 @@ const LIVE_SIM = [
 ];
 
 const SLIDES = [
-  "Title", "The Problem", "Our Answer", "What We Built", "The Pipeline", "The Model",
-  "Training & Accuracy", "Results", "Diagnostics", "Live Test", "Live Calls",
+  "Title", "The Problem", "Our Answer", "What We Built", "The Website", "The Pipeline", "The Model",
+  "Training & Accuracy", "Results", "Diagnostics", "Live Test", "Live Calls", "Captured Live",
   "Performance", "Privacy & Security", "Journey", "Limitations & Next Steps", "Thank You",
 ];
 
@@ -251,8 +251,24 @@ export default function FinalPresentationPage() {
           </div>
         </Slide>
 
-        {/* 5 — PIPELINE */}
-        <Slide index={4} eyebrow="04 — THE PIPELINE" title="From microphone to score in six steps">
+        {/* 5 — THE WEBSITE */}
+        <Slide index={4} eyebrow="03 — WHAT WE BUILT" title="The website the team built">
+          <div className="fp-shots fp-shots-3">
+            {[
+              ["home.jpg", "Home", "Side menu with every page and quick links to both presentations."],
+              ["architecture.jpg", "Architecture", "How audio moves from the microphone to the score."],
+              ["deliverables.jpg", "Deliverables", "Versioned archive of every published presentation."],
+            ].map(([file, name, text]) => (
+              <figure className="fp-shot" key={file}>
+                <div className="fp-shot-frame"><img src={`/screenshots/${file}`} alt={`${name} page`} loading="lazy" /></div>
+                <figcaption><strong>{name}</strong>{text}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </Slide>
+
+        {/* 6 — PIPELINE */}
+        <Slide index={5} eyebrow="04 — THE PIPELINE" title="From microphone to score in six steps">
           <ol className="fp-flow">
             {[
               ["Capture", "Microphone, demo voice or PC audio at 44.1/48 kHz"],
@@ -272,8 +288,8 @@ export default function FinalPresentationPage() {
           <p className="fp-note">The JavaScript feature code matches the Python training code, so the browser sees the same input the model was trained on.</p>
         </Slide>
 
-        {/* 6 — MODEL */}
-        <Slide index={5} eyebrow="05 — THE MODEL" title="One small network, three answers">
+        {/* 7 — MODEL */}
+        <Slide index={6} eyebrow="05 — THE MODEL" title="One small network, three answers">
           <div className="fp-split">
             <div className="fp-arch">
               <div className="fp-arch-box">Input · 201 frames × 85 features</div>
@@ -298,8 +314,8 @@ export default function FinalPresentationPage() {
           </div>
         </Slide>
 
-        {/* 7 — TRAINING */}
-        <Slide index={6} eyebrow="06 — TRAINING & ACCURACY" title="Trained on real speech with known damage">
+        {/* 8 — TRAINING */}
+        <Slide index={7} eyebrow="06 — TRAINING & ACCURACY" title="Trained on real speech with known damage">
           <div className="fp-split">
             <div>
               <ul className="fp-list">
@@ -323,8 +339,8 @@ export default function FinalPresentationPage() {
           </div>
         </Slide>
 
-        {/* 8 — RESULTS */}
-        <Slide index={7} eyebrow="07 — RESULTS" title="Every kind of damage lowers the score">
+        {/* 9 — RESULTS */}
+        <Slide index={8} eyebrow="07 — RESULTS" title="Every kind of damage lowers the score">
           <div className="fp-bars">
             {SWEEP.map((r) => (
               <div className="fp-bar-row" key={r.label}>
@@ -340,8 +356,8 @@ export default function FinalPresentationPage() {
           <p className="fp-note">Mean predicted score on 83 two-second windows of CMU ARCTIC studio speech. Louder noise gives a steadily lower score: 3.44 → 3.01 → 2.57 → 2.15.</p>
         </Slide>
 
-        {/* 9 — DIAGNOSTICS */}
-        <Slide index={8} dark eyebrow="08 — DIAGNOSTICS" title="It also says what is wrong">
+        {/* 10 — DIAGNOSTICS */}
+        <Slide index={9} dark eyebrow="08 — DIAGNOSTICS" title="It also says what is wrong">
           <div className="fp-diag">
             {DIAGNOSTICS.map((d) => (
               <article key={d.head}>
@@ -356,8 +372,8 @@ export default function FinalPresentationPage() {
           <p className="fp-lead">Each diagnostic rises for its own problem. Noise is detected most strongly; the others react clearly but with smaller probabilities, so the app uses per-problem thresholds.</p>
         </Slide>
 
-        {/* 10 — LIVE TEST */}
-        <Slide index={9} eyebrow="09 — LIVE TEST PAGE" title="Try it: speak, play a voice, or break the audio">
+        {/* 11 — LIVE TEST */}
+        <Slide index={10} eyebrow="09 — LIVE TEST PAGE" title="Try it: speak, play a voice, or break the audio">
           <div className="fp-split">
             <ul className="fp-list">
               <li><b>Inputs:</b> microphone, three studio demo voices (CMU ARCTIC), an uploaded file, or audio from the PC.</li>
@@ -378,8 +394,8 @@ export default function FinalPresentationPage() {
           </div>
         </Slide>
 
-        {/* 11 — CALLS */}
-        <Slide index={10} eyebrow="10 — LIVE CALLS" title="In a call, score what you actually hear">
+        {/* 12 — CALLS */}
+        <Slide index={11} eyebrow="10 — LIVE CALLS" title="In a call, score what you actually hear">
           <div className="fp-call">
             <div className="fp-peer">
               <h3>You</h3>
@@ -400,8 +416,22 @@ export default function FinalPresentationPage() {
           <p className="fp-lead">A second on-device analyser scores the incoming audio, so network dropouts show up where they matter. The “What you hear” card appears only while the call is connected.</p>
         </Slide>
 
-        {/* 12 — PERFORMANCE */}
-        <Slide index={11} dark eyebrow="11 — PERFORMANCE" title="Fast enough to run beside a call">
+        {/* 13 — CAPTURED LIVE */}
+        <Slide index={12} eyebrow="10 — LIVE CALLS" title="Captured live from the running app">
+          <div className="fp-shots fp-shots-2">
+            <figure className="fp-shot">
+              <div className="fp-shot-frame"><img src="/screenshots/live-test.jpg" alt="Live Test page scoring Voice 1" loading="lazy" /></div>
+              <figcaption><strong>Live Test, on its own</strong>Voice 1 playing: the score, problem cards and oscilloscope update about three times a second.</figcaption>
+            </figure>
+            <figure className="fp-shot">
+              <div className="fp-shot-frame"><img src="/screenshots/live-call.jpg" alt="Two-way call showing Your mic and What you hear scores" loading="lazy" /></div>
+              <figcaption><strong>In a two-way call</strong>“Your mic” and “What you hear” are scored side by side; the incoming audio has passed through WebRTC.</figcaption>
+            </figure>
+          </div>
+        </Slide>
+
+        {/* 14 — PERFORMANCE */}
+        <Slide index={13} dark eyebrow="11 — PERFORMANCE" title="Fast enough to run beside a call">
           <div className="fp-grid-4">
             <div className="fp-stat"><strong>13.4<small> ms</small></strong><span>median browser time per 2-second window (WebAssembly, 1 thread)</span></div>
             <div className="fp-stat"><strong>~4<small>%</small></strong><span>of one CPU core when scoring every 0.35 s</span></div>
@@ -410,8 +440,8 @@ export default function FinalPresentationPage() {
           </div>
         </Slide>
 
-        {/* 13 — PRIVACY & SECURITY */}
-        <Slide index={12} eyebrow="12 — PRIVACY & SECURITY" title="Private by design, safe by default">
+        {/* 15 — PRIVACY & SECURITY */}
+        <Slide index={14} eyebrow="12 — PRIVACY & SECURITY" title="Private by design, safe by default">
           <div className="fp-grid-3">
             <article className="fp-card">
               <span className="fp-icon">🔒</span>
@@ -431,8 +461,8 @@ export default function FinalPresentationPage() {
           </div>
         </Slide>
 
-        {/* 14 — JOURNEY */}
-        <Slide index={13} eyebrow="13 — THE JOURNEY" title="17 weeks from idea to working system">
+        {/* 16 — JOURNEY */}
+        <Slide index={15} eyebrow="13 — THE JOURNEY" title="17 weeks from idea to working system">
           <div className="fp-timeline">
             {[
               ["Weeks 1–2", "Browser feasibility"],
@@ -452,8 +482,8 @@ export default function FinalPresentationPage() {
           </div>
         </Slide>
 
-        {/* 15 — LIMITATIONS */}
-        <Slide index={14} eyebrow="14 — LIMITATIONS & NEXT STEPS" title="What we learned and what comes next">
+        {/* 17 — LIMITATIONS */}
+        <Slide index={16} eyebrow="14 — LIMITATIONS & NEXT STEPS" title="What we learned and what comes next">
           <div className="fp-two-col">
             <div className="fp-panel">
               <h3>Honest limitations</h3>
@@ -476,8 +506,8 @@ export default function FinalPresentationPage() {
           </div>
         </Slide>
 
-        {/* 16 — THANK YOU */}
-        <Slide index={15} dark className="fp-end">
+        {/* 18 — THANK YOU */}
+        <Slide index={17} dark className="fp-end">
           <h2 className="fp-hero small">Thank you</h2>
           <p className="fp-hero-sub">Questions & live demo</p>
           <div className="fp-end-actions">

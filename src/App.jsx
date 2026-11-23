@@ -36,7 +36,6 @@ function Project() {
   return (
     <Page>
       <div className="page-title">
-        <span>01 — PROJECT</span>
         <h1>Project Overview</h1>
         <p>
           EdgeAudio-QC is a privacy-preserving browser-based system for
@@ -175,7 +174,6 @@ function Team() {
   return (
     <Page>
       <div className="page-title">
-        <span>02 — TEAM</span>
         <h1>Our Team</h1>
         <p>Three members working across frontend, machine learning, browser inference, backend and deployment.</p>
       </div>
@@ -223,7 +221,6 @@ function Timeline() {
   return (
     <Page>
       <div className="page-title">
-        <span>10 — INITIAL PLANNING</span>
         <h1>17-Week Development Roadmap</h1>
         <p>Tasks, dependencies, milestones and deadlines for the complete EdgeAudio-QC project.</p>
       </div>
@@ -310,7 +307,6 @@ function Architecture() {
   return (
     <Page>
       <div className="page-title">
-        <span>04 — SYSTEM ARCHITECTURE</span>
         <h1>Technical Architecture</h1>
         <p>Proposed frontend, backend, storage and deployment architecture.</p>
       </div>
