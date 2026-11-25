@@ -1,0 +1,144 @@
+/* Documentation page + shared figure/table styles (also used on Architecture and Team pages) */
+
+.doc-toc {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px 24px;
+  max-width: 1100px;
+  margin: 0 auto 50px;
+  padding: 28px 32px;
+  background: #ffffff;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 16px;
+}
+.doc-toc a {
+  color: #1d4ed8;
+  font-size: 17px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.doc-toc a:hover { text-decoration: underline; }
+
+.doc-section { scroll-margin-top: 90px; }
+.doc-section h3 {
+  margin: 28px 0 12px;
+  color: #0f172a;
+  font-size: 21px;
+  font-weight: 800;
+}
+.doc-section p,
+.doc-list li {
+  color: #1e293b;
+  font-size: 18px;
+  line-height: 1.75;
+}
+.doc-section a { color: #1d4ed8; overflow-wrap: anywhere; }
+.doc-list { margin: 0; padding-left: 26px; display: flex; flex-direction: column; gap: 8px; }
+.doc-refs li { font-size: 16px; }
+
+.doc-section code,
+.doc-table code,
+.doc-caption code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.88em;
+  background: #e0ecff;
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+
+.doc-code {
+  margin: 0 0 8px;
+  padding: 18px 22px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 12px;
+  overflow-x: auto;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.doc-code code { background: none; padding: 0; color: inherit; font-size: inherit; }
+
+.doc-table-wrap { overflow-x: auto; }
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  font-size: 16px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.doc-table th,
+.doc-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 12px 16px;
+  border: 1px solid #dbeafe;
+  color: #1e293b;
+  line-height: 1.55;
+}
+.doc-table th { background: #dbeafe; color: #0f172a; font-weight: 800; }
+
+.doc-figure {
+  display: block;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+.doc-figure-md { max-width: 760px; }
+.doc-caption,
+.doc-note {
+  margin: 14px auto 0;
+  max-width: 1000px;
+  color: #475569 !important;
+  font-size: 16px !important;
+  text-align: center;
+}
+.doc-note { text-align: left; }
+.doc-flow { background: #ffffff; border-left: 5px solid #2563eb; padding: 16px 20px; border-radius: 0 10px 10px 0; }
+
+.doc-two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 24px;
+  margin-top: 28px;
+}
+.doc-two figure { margin: 0; }
+.doc-two figcaption { margin-top: 8px; text-align: center; color: #475569; font-size: 15px; }
+
+.doc-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 24px;
+}
+.doc-card {
+  margin: 0;
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.doc-card img {
+  width: 100%;
+  height: 240px;
+  object-fit: contain;
+  background: #ffffff;
+}
+.doc-card figcaption { color: #1e293b; font-size: 15px; line-height: 1.6; }
+
+/* Team page additions */
+.team-card-new .team-roll { font-weight: 700; color: #1d4ed8; margin: -4px 0 8px; }
+.team-card-new .team-work { margin-top: 14px; font-size: 15px; line-height: 1.6; color: #334155; }
+
+@media (max-width: 640px) {
+  .project-section.doc-section { padding: 28px 18px; }
+  .doc-two, .doc-gallery { grid-template-columns: 1fr; }
+  .doc-table { font-size: 14px; }
+}

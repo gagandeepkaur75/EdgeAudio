@@ -10,7 +10,7 @@ const SLUG_PATTERN = /^[a-z0-9][a-z0-9_-]{0,79}$/;
 // when one exists.
 const RESERVED_SLUGS = new Set([
   'project', 'team', 'timeline', 'architecture', 'live-communication', 'live',
-  'live-test', 'planning', 'admin', 'deliverables', 'final-presentation', 'api', 'uploads', 'assets',
+  'live-test', 'planning', 'admin', 'deliverables', 'final-presentation', 'documentation', 'api', 'uploads', 'assets',
   'models', 'audio',
 ]);
 

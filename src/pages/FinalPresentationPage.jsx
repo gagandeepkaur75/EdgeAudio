@@ -181,7 +181,7 @@ export default function FinalPresentationPage() {
           <svg className="fp-wave" viewBox="0 0 1200 220" preserveAspectRatio="none" aria-hidden="true">
             <path d={wave} />
           </svg>
-          <p className="fp-names">Gagandeep Kaur · Prabhleen Kaur · Dishita</p>
+          <p className="fp-names">Team VoxEdge (Team 6, 3Q13) · Prabhleen Kaur Saini · Gagandeep Kaur · Dishita Sharma</p>
           <p className="fp-hint">Use ↑ ↓ or the arrow keys to move between slides</p>
         </Slide>
 
@@ -214,8 +214,8 @@ export default function FinalPresentationPage() {
               <span>bytes of audio sent to our server for scoring</span>
             </div>
             <div className="fp-stat">
-              <strong>13.4<small> ms</small></strong>
-              <span>median time to score a 2-second window in the browser</span>
+              <strong>2<small> s</small></strong>
+              <span>windows of speech scored continuously while you talk</span>
             </div>
             <div className="fp-stat">
               <strong>5</strong>
@@ -327,13 +327,14 @@ export default function FinalPresentationPage() {
             </div>
             <table className="fp-table">
               <thead>
-                <tr><th>Metric</th><th>Validation</th><th>Test</th></tr>
+                <tr><th>Metric (held-out test set)</th><th>Value</th></tr>
               </thead>
               <tbody>
-                <tr><td>Score correlation (PLCC)</td><td>0.83</td><td>0.71</td></tr>
-                <tr><td>Rank correlation (SRCC)</td><td>0.84</td><td>0.63</td></tr>
-                <tr><td>Voice detection F1</td><td>—</td><td>0.999</td></tr>
-                <tr><td>Test windows</td><td>—</td><td>397</td></tr>
+                <tr><td>Score correlation (PLCC)</td><td>0.71</td></tr>
+                <tr><td>Rank correlation (SRCC)</td><td>0.63</td></tr>
+                <tr><td>Score RMSE (1–5 scale)</td><td>1.28</td></tr>
+                <tr><td>Voice detection accuracy / F1</td><td>0.998 / 0.999</td></tr>
+                <tr><td>Test windows</td><td>397</td></tr>
               </tbody>
             </table>
           </div>
@@ -431,12 +432,12 @@ export default function FinalPresentationPage() {
         </Slide>
 
         {/* 14 — PERFORMANCE */}
-        <Slide index={13} dark eyebrow="11 — PERFORMANCE" title="Fast enough to run beside a call">
+        <Slide index={13} dark eyebrow="11 — PERFORMANCE" title="Small enough to run beside a call">
           <div className="fp-grid-4">
-            <div className="fp-stat"><strong>13.4<small> ms</small></strong><span>median browser time per 2-second window (WebAssembly, 1 thread)</span></div>
-            <div className="fp-stat"><strong>~4<small>%</small></strong><span>of one CPU core when scoring every 0.35 s</span></div>
-            <div className="fp-stat"><strong>2.4<small> ms</small></strong><span>model alone, native ONNX Runtime on the same PC</span></div>
-            <div className="fp-stat"><strong>2.45<small> MB</small></strong><span>model download, cached by the browser</span></div>
+            <div className="fp-stat"><strong>2.45<small> MB</small></strong><span>FP32 model download, cached by the browser</span></div>
+            <div className="fp-stat"><strong>0.41<small> MB</small></strong><span>INT8 quantised variant, also exported</span></div>
+            <div className="fp-stat"><strong>584<small> k</small></strong><span>parameters: depthwise CNN + 2-layer GRU</span></div>
+            <div className="fp-stat"><strong>&lt; 25<small> ms</small></strong><span>design target per window (NFR-01); browser latency still to be measured across devices</span></div>
           </div>
         </Slide>
 

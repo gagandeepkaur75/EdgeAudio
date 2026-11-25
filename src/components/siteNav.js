@@ -12,6 +12,7 @@ export function useSiteNavLinks() {
     { to: "/live-communication", label: "Live Test" },
     { to: "/timeline", label: "Timeline" },
     { to: "/architecture", label: "Architecture" },
+    { to: "/documentation", label: "Documentation" },
     { to: "/admin", label: "Admin" },
   ];
 }
