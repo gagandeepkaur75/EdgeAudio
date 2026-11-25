@@ -5,7 +5,8 @@ const REPO = "https://github.com/gagandeepkaur75/EdgeAudio";
 const FORK = "https://github.com/prabhleenkaursaini/EdgeAudioP";
 const SITE = "https://edgeaudio.gkaur10-be24.workers.dev";
 const API = "https://falling-thunder-attitude-indianapolis.trycloudflare.com";
-const COMMIT = "cec2cb6";
+const TESTED = "cec2cb6";
+const FINAL = "b188a00";
 
 const SECTIONS = [
   ["overview", "Project at a glance"],
@@ -104,7 +105,7 @@ export default function DocumentationPage() {
             ["Deliverables history", <a key="v" href={`${SITE}/deliverables`}>{SITE}/deliverables</a>],
             ["Backend health check", <a key="v" href={`${API}/api/health`}>{API}/api/health</a>],
             ["Source repository", <><a href={REPO}>{REPO}</a> (team fork: <a href={FORK}>{FORK}</a>)</>],
-            ["Final version", <>Commit <a href={`${REPO}/commit/${COMMIT}`}><code>{COMMIT}</code></a> on <code>main</code></>],
+            ["Final version", <>Commit <a href={`${REPO}/commit/${FINAL}`}><code>{FINAL}</code></a> on <code>main</code> (<a href={`${REPO}/commits/main`}>latest commits</a>)</>],
           ]} />
           <p className="doc-note">The backend uses a temporary Cloudflare quick-tunnel address; if the tunnel is restarted the address changes and the site must be rebuilt with the new <code>VITE_API_URL</code>.</p>
         </Sec>
@@ -213,7 +214,7 @@ python ml/test_suite.py      # parity, behaviour and held-out tests`}</Code>
         </Sec>
 
         <Sec id="testing" title="9. Testing approach and results">
-          <p><b>Approach:</b> black-box API tests, Python/JavaScript feature-parity and PyTorch/ONNX parity tests, behavioural model tests (score must fall as noise, packet loss, clipping and muffling get worse), a held-out evaluation, and manual browser tests. <b>Tested version:</b> commit <code>{COMMIT}</code> on <code>main</code>, 23 November 2026.</p>
+          <p><b>Approach:</b> black-box API tests, Python/JavaScript feature-parity and PyTorch/ONNX parity tests, behavioural model tests (score must fall as noise, packet loss, clipping and muffling get worse), a held-out evaluation, and manual browser tests. <b>Tested version:</b> commit <code>{TESTED}</code> on <code>main</code>, 23 November 2026.</p>
           <Table head={["Category", "Test cases", "Status", "Evidence"]} rows={[
             ["Backend API", "TC-01 to TC-10", "Executed: 17/17 checks passed", <><code>backend/tests/api.test.js</code>, <a href={`${REPO}/blob/main/docs/api-test-results.json`}><code>docs/api-test-results.json</code></a></>],
             ["Model parity and behaviour", "TC-13 to TC-15", "Executed and passed", <code key="v">ml/test_suite.py</code>],
